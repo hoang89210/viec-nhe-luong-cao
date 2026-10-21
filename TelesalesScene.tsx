@@ -61,6 +61,8 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
   const [result, setResult] = useState<{kind: CallResult; text: string} | null>(null);
   const [busy, setBusy] = useState(false);
   const endedRef = useRef(false);
+  const ringMsRef = useRef(3400);
+  const callIdRef = useRef(0);
 
   const victim = TELESALES_VICTIMS[victimIndex];
   const dialogue = victim?.dialogues[step];
@@ -81,6 +83,7 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     if (idx === lastVictimRef.current) idx = (idx + 1) % TELESALES_VICTIMS.length;
     lastVictimRef.current = idx;
     endedRef.current = false;
+    callIdRef.current++;
     setVictimIndex(idx);
     setStep(0);
     setSuspicion(TELESALES_VICTIMS[idx].initialSuspicion);
@@ -91,7 +94,8 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     prepareStep(idx, 0);
     gameAudio.stopVoice();
     gameAudio.preloadVoice(voiceUrl(TELESALES_VICTIMS[idx].id, TELESALES_VICTIMS[idx].dialogues[0].prompt));
-    gameAudio.playPhoneRing();
+    // ringback "tút... tút..." then pickup click; the caller talks after that
+    ringMsRef.current = gameAudio.playRingback(2);
   }, [prepareStep]);
 
   // First call on mount
@@ -99,10 +103,10 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     startCall();
   }, [startCall]);
 
-  // Ringing -> talk
+  // Ringing (ringback + pickup) -> talk
   useEffect(() => {
     if (phase !== 'RINGING') return;
-    const t = setTimeout(() => setPhase('TALK'), 1500);
+    const t = setTimeout(() => setPhase('TALK'), Math.max(1500, ringMsRef.current));
     return () => clearTimeout(t);
   }, [phase, victimIndex]);
 
@@ -123,8 +127,15 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     else setVoiceOn(gameAudio.isVoiceEnabled());
   }, [paused]);
 
-  // Leaving the desk stops any speech
-  useEffect(() => () => gameAudio.stopVoice(), []);
+  // Leaving the desk stops any speech / phone tones
+  useEffect(
+    () => () => {
+      callIdRef.current++; // no busy tone after leaving the desk
+      gameAudio.stopVoice();
+      gameAudio.stopPhoneLine();
+    },
+    [],
+  );
 
   // Typewriter + babble voice
   useEffect(() => {
@@ -144,8 +155,12 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
   const endCall = (kind: CallResult, text: string) => {
     if (endedRef.current) return;
     endedRef.current = true;
-    if (kind !== 'PASS') gameAudio.playDialTone();
-    else gameAudio.playCoinPickup();
+    if (kind === 'PASS') gameAudio.playCoinPickup();
+    // the line goes dead: short busy tone "tút tút tút" once the last spoken line is over
+    const callId = callIdRef.current;
+    void gameAudio.whenVoiceIdle(4000).then(() => {
+      if (callIdRef.current === callId) gameAudio.playBusyTone(3);
+    });
     gameAudio.cancelQueuedVoice(); // let the last reply finish, drop anything queued
     const summary = propsRef.current.onCallEnd(kind);
     setResult({kind, text: `${text}\n${summary}`});
@@ -304,7 +319,7 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
               className="bg-[#0f1b17] border border-[#234236] p-4 rounded-md mb-4 text-emerald-300 text-sm leading-relaxed shadow-inner min-h-[88px] cursor-pointer short:p-2.5 short:mb-2 short:min-h-[56px] short:text-[13px] short:leading-snug"
               onClick={() => setTyped(prompt.length)}>
               {phase === 'RINGING' ? (
-                <span className="text-slate-500 italic">Reng reng... reng reng...</span>
+                <span className="text-slate-500 italic">Tút... tút... (đang đổ chuông)</span>
               ) : (
                 <>
                   <span className="text-yellow-400 font-bold">Khách hàng: </span>

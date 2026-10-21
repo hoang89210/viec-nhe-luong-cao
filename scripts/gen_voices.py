@@ -16,11 +16,17 @@ import asyncio, json, os, subprocess, sys, tempfile, unicodedata
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'assets', 'voice')
 
-# Callers: telephone band 300-3400 Hz, compressed, a little line hiss, 22.05 kHz mono 32 kbps.
-PHONE = ('[0:a]aformat=channel_layouts=mono,highpass=f=300,highpass=f=300,lowpass=f=3400,lowpass=f=3400,'
-         'acompressor=threshold=-20dB:ratio=4:attack=5:release=60:makeup=2,volume=0.9[v];'
-         'anoisesrc=color=pink:amplitude=0.006:sample_rate=24000[n];'
-         '[v][n]amix=inputs=2:duration=first:normalize=0,aresample=22050[out]')
+# Callers (fx 'phone2'): telephone band 350-3200 Hz, resampled through 8 kHz like a
+# narrowband call codec, a little tanh saturation + bit crunch, compressed, audible
+# line hiss; 22.05 kHz mono 32 kbps.
+PHONE = ('[0:a]aformat=channel_layouts=mono,'
+         'highpass=f=350,highpass=f=350,lowpass=f=3200,lowpass=f=3200,'
+         'aresample=8000,acrusher=bits=11:mode=log:aa=1:mix=0.35,aresample=22050,'
+         'volume=2.0,asoftclip=type=tanh,volume=0.6,'
+         'acompressor=threshold=-20dB:ratio=5:attack=4:release=60:makeup=2,'
+         'highpass=f=350,lowpass=f=3300[v];'
+         'anoisesrc=color=pink:amplitude=0.012:sample_rate=22050,highpass=f=300,lowpass=f=3400[n];'
+         '[v][n]amix=inputs=2:duration=first:normalize=0[out]')
 # Player: own headset mic, gentle band limit + light compression, 24 kHz mono 40 kbps.
 HEADSET = ('[0:a]aformat=channel_layouts=mono,highpass=f=150,lowpass=f=6500,'
            'acompressor=threshold=-18dB:ratio=2.5:attack=8:release=80:makeup=1.5,aresample=24000[out]')
@@ -53,7 +59,7 @@ async def gen(job, sem, force):
                     if attempt == 3:
                         raise
                     await asyncio.sleep(1.5 * (attempt + 1))
-            phone = p['fx'] == 'phone'
+            phone = p['fx'].startswith('phone')
             cmd = ['ffmpeg', '-v', 'error', '-y', '-i', raw, '-filter_complex', PHONE if phone else HEADSET,
                    '-map', '[out]', '-ac', '1', '-c:a', 'libmp3lame', '-b:a', '32k' if phone else '40k', dst]
             proc = await asyncio.create_subprocess_exec(*cmd)

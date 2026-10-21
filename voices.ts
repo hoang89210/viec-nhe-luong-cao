@@ -14,18 +14,18 @@ export interface VoiceProfile {
   pitch: string;
   /** edge-tts --rate, e.g. "+10%" */
   rate: string;
-  /** baked ffmpeg effect: 'phone' = caller on a phone line, 'headset' = the player's own mic */
-  fx: 'phone' | 'headset';
+  /** baked ffmpeg effect: 'phone2' = caller on a phone line (v2: narrower band, 8 kHz codec, saturation), 'headset' = the player's own mic */
+  fx: 'phone2' | 'headset';
   label: string;
 }
 
 /** Victims (keyed by TELESALES_VICTIMS id) + the player. Gender matched to the character. */
 export const VOICE_PROFILES: Record<string, VoiceProfile> = {
-  uncle_sau: {voice: 'vi-VN-NamMinhNeural', pitch: '-16Hz', rate: '-12%', fx: 'phone', label: 'Bác Sáu: nam, trầm, chậm'},
-  student_nam: {voice: 'vi-VN-NamMinhNeural', pitch: '+12Hz', rate: '+12%', fx: 'phone', label: 'Cậu Nam: nam, cao, nhanh'},
-  vendor_chi_ba: {voice: 'vi-VN-HoaiMyNeural', pitch: '+4Hz', rate: '+14%', fx: 'phone', label: 'Chị Ba: nữ, nhanh nhảu'},
-  co_tu: {voice: 'vi-VN-HoaiMyNeural', pitch: '-14Hz', rate: '-10%', fx: 'phone', label: 'Cô Tư: nữ, trầm, chậm rãi'},
-  anh_teo: {voice: 'vi-VN-NamMinhNeural', pitch: '+4Hz', rate: '+20%', fx: 'phone', label: 'Anh Tèo: nam, vội vã'},
+  uncle_sau: {voice: 'vi-VN-NamMinhNeural', pitch: '-16Hz', rate: '-12%', fx: 'phone2', label: 'Bác Sáu: nam, trầm, chậm'},
+  student_nam: {voice: 'vi-VN-NamMinhNeural', pitch: '+12Hz', rate: '+12%', fx: 'phone2', label: 'Cậu Nam: nam, cao, nhanh'},
+  vendor_chi_ba: {voice: 'vi-VN-HoaiMyNeural', pitch: '+4Hz', rate: '+14%', fx: 'phone2', label: 'Chị Ba: nữ, nhanh nhảu'},
+  co_tu: {voice: 'vi-VN-HoaiMyNeural', pitch: '-14Hz', rate: '-10%', fx: 'phone2', label: 'Cô Tư: nữ, trầm, chậm rãi'},
+  anh_teo: {voice: 'vi-VN-NamMinhNeural', pitch: '+4Hz', rate: '+20%', fx: 'phone2', label: 'Anh Tèo: nam, vội vã'},
   player: {voice: 'vi-VN-NamMinhNeural', pitch: '-6Hz', rate: '+0%', fx: 'headset', label: 'Người chơi: nam, giọng tai nghe (không qua lọc điện thoại)'},
 };
 

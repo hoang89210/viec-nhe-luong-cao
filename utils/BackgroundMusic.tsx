@@ -12,6 +12,8 @@ export interface BackgroundMusicProps {
   readonly isMuted?: boolean;
   /** Master volume level between 0.0 (silent) and 1.0 (full). Defaults to 0.15. */
   readonly volume?: number;
+  /** Seconds for volume changes to settle (fade in/out). Defaults to ~0.05 s. */
+  readonly fadeSec?: number;
 }
 
 /**
@@ -236,6 +238,7 @@ export function BackgroundMusic({
   isPlaying,
   isMuted = false,
   volume = DEFAULT_VOLUME,
+  fadeSec,
 }: BackgroundMusicProps): React.ReactElement | null {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
@@ -533,13 +536,15 @@ export function BackgroundMusic({
     const ctx = audioCtxRef.current;
     const masterGain = masterGainRef.current;
     if (ctx && masterGain && ctx.state !== 'closed') {
+      masterGain.gain.cancelScheduledValues(ctx.currentTime);
+      masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
       masterGain.gain.setTargetAtTime(
         targetGain,
         ctx.currentTime,
-        VOLUME_TIME_CONSTANT_SEC,
+        fadeSec ? fadeSec / 4 : VOLUME_TIME_CONSTANT_SEC,
       );
     }
-  }, [effectiveMuted, volume, useFallback]);
+  }, [effectiveMuted, volume, useFallback, fadeSec]);
 
   // Cleanup on component unmount
   useEffect(() => {

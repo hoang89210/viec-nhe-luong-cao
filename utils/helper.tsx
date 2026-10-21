@@ -481,6 +481,12 @@ class GameAudio {
   private voiceGen = 0;
   private voiceChain: Promise<void> = Promise.resolve();
   private voiceCache = new Map<string, Promise<AudioBuffer | null>>();
+  private voiceIdle: Promise<void> = Promise.resolve();
+
+  /** Resolves when the clip currently speaking ends (or after capMs). */
+  whenVoiceIdle(capMs = 4000): Promise<void> {
+    return Promise.race([this.voiceIdle, new Promise<void>((res) => setTimeout(res, capMs))]);
+  }
 
   isVoiceEnabled(): boolean {
     return this.voiceOn;
@@ -541,10 +547,13 @@ class GameAudio {
       src.buffer = buf;
       src.connect(this.voiceGain);
       this.voiceSrc = src;
+      let endedRes: () => void = () => {};
+      this.voiceIdle = new Promise<void>((res) => (endedRes = res));
       await new Promise<void>((resolve) => {
         const t = setTimeout(resolve, Math.min(cap, buf.duration * 1000 + 150));
         src.onended = () => {
           clearTimeout(t);
+          endedRes();
           resolve();
         };
         src.start();
@@ -697,6 +706,123 @@ class GameAudio {
     g.connect(out);
     osc.start(at);
     osc.stop(at + dur + 0.02);
+  }
+
+  // --- Phone line (ringback / pickup / busy), cut-able as a group ---------------
+  private lineNodes: AudioScheduledSourceNode[] = [];
+  private lineBus: GainNode | null = null;
+
+  /** A fresh bus for one phone-line sequence: 350-3200 Hz band like a handset earpiece. */
+  private openLine(b: Beat): GainNode {
+    this.stopPhoneLine();
+    const {ctx, out} = b;
+    const bus = ctx.createGain();
+    const hp = ctx.createBiquadFilter();
+    const lp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 350;
+    lp.type = 'lowpass';
+    lp.frequency.value = 3200;
+    bus.connect(hp);
+    hp.connect(lp);
+    lp.connect(out);
+    this.lineBus = bus;
+    return bus;
+  }
+
+  private lineHiss(b: Beat, bus: GainNode, at: number, dur: number, gain = 0.012) {
+    const {ctx} = b;
+    const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      last = last * 0.92 + (Math.random() * 2 - 1) * 0.08; // soft, low hiss
+      d[i] = last * 4;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g);
+    g.connect(bus);
+    src.start(at);
+    src.stop(at + dur);
+    this.lineNodes.push(src);
+  }
+
+  private lineTone(b: Beat, bus: GainNode, at: number, freq: number, dur: number, gain: number) {
+    const {ctx} = b;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, at);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(gain, at + 0.012);
+    g.gain.setValueAtTime(gain, at + Math.max(0.02, dur - 0.02));
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    osc.connect(g);
+    g.connect(bus);
+    osc.start(at);
+    osc.stop(at + dur + 0.02);
+    this.lineNodes.push(osc);
+  }
+
+  /**
+   * Vietnamese-style ringback "tút... tút..." the caller hears: 425 Hz,
+   * shortened for gameplay to 1 s on / 1 s off, then the pickup click.
+   * Returns the total length in ms (when the callee "picks up").
+   */
+  playRingback(rings = 2): number {
+    const onSec = 1;
+    const offSec = 1;
+    const pickupAt = rings * onSec + (rings - 1) * offSec + 0.35;
+    const b = this.begin();
+    if (!b) return pickupAt * 1000;
+    const bus = this.openLine(b);
+    const t0 = b.now + 0.05;
+    this.lineHiss(b, bus, t0, pickupAt + 0.2, 0.01);
+    for (let r = 0; r < rings; r++) this.lineTone(b, bus, t0 + r * (onSec + offSec), 425, onSec, 0.11);
+    // pickup: handset click + short burst of line noise
+    const tp = t0 + pickupAt;
+    const click = b.ctx.createOscillator();
+    const cg = b.ctx.createGain();
+    click.type = 'square';
+    click.frequency.setValueAtTime(1800, tp);
+    click.frequency.exponentialRampToValueAtTime(300, tp + 0.03);
+    cg.gain.setValueAtTime(0.12, tp);
+    cg.gain.exponentialRampToValueAtTime(0.0001, tp + 0.05);
+    click.connect(cg);
+    cg.connect(bus);
+    click.start(tp);
+    click.stop(tp + 0.06);
+    this.lineNodes.push(click);
+    this.lineHiss(b, bus, tp, 0.18, 0.05);
+    return (pickupAt + 0.1) * 1000;
+  }
+
+  /** Hang-up busy tone "tút tút tút" (425 Hz, 0.35 s on/off, short). */
+  playBusyTone(beeps = 3) {
+    const b = this.begin();
+    if (!b) return;
+    const bus = this.openLine(b);
+    const t0 = b.now + 0.03;
+    this.lineHiss(b, bus, t0, beeps * 0.7, 0.008);
+    for (let i = 0; i < beeps; i++) this.lineTone(b, bus, t0 + i * 0.7, 425, 0.35, 0.1);
+  }
+
+  /** Cut any ringback / busy tone still sounding (leaving the desk, new call). */
+  stopPhoneLine() {
+    for (const n of this.lineNodes) {
+      try {
+        n.stop();
+      } catch {}
+    }
+    this.lineNodes = [];
+    try {
+      this.lineBus?.disconnect();
+    } catch {}
+    this.lineBus = null;
   }
 
   /** Old-phone ring: two short double-trills. */

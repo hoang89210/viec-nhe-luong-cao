@@ -2989,9 +2989,33 @@ export default function App() {
       ? 'assets/audio/bgm_compound_night.mp3'
       : 'assets/audio/bgm_compound_day.mp3';
 
+  // Per-track levels (the day track is mastered much louder than the night one):
+  // day 0.6 -> 0.27 (~45%), night 0.6 -> 0.65, escape 0.6 -> 0.45 (tension kept).
+  const musicTrackVolume =
+    sceneMode === 'ESCAPE_MAZE' ? 0.45 : isNight ? 0.65 : 0.27;
+  // Background music fades out at the desk / canteen / roommates / junk storage and
+  // while a menu, guide or morning card is open; it fades back in the overworld.
+  const musicDucked =
+    sceneMode === 'TELESALES' ||
+    sceneMode === 'CANTEEN' ||
+    sceneMode === 'ROOMMATES' ||
+    sceneMode === 'JUNK_STORAGE' ||
+    isGameMenuOpen ||
+    isHowToPlayOpen ||
+    !!dailyEvent;
+  // Pause the track entirely once the fade-out has finished
+  const [musicParked, setMusicParked] = useState(false);
+  useEffect(() => {
+    if (!musicDucked) {
+      setMusicParked(false);
+      return;
+    }
+    const t = setTimeout(() => setMusicParked(true), 1400);
+    return () => clearTimeout(t);
+  }, [musicDucked]);
   const isMusicPlaying =
     gameState.status === 'PLAYING' &&
-    !isGameMenuOpen &&
+    !musicParked &&
     sceneMode !== 'ENDING' &&
     sceneMode !== 'AWARENESS';
 
@@ -3020,7 +3044,8 @@ export default function App() {
         url={currentMusicUrl}
         isPlaying={isMusicPlaying}
         isMuted={isMusicMuted}
-        volume={getConfig('defaultMusicVolume') as number}
+        volume={musicDucked ? 0 : musicTrackVolume}
+        fadeSec={1}
       />
 
       {/* DEDICATED TOP HUD (Strictly non-overlapping, small text, responsive flex-wrap) */}
