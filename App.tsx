@@ -39,6 +39,7 @@ import TelesalesScene, {CallResult} from './TelesalesScene';
 import JunkStorageScene, {QUEST_ITEM_INFO, QuestItemId} from './JunkStorageScene';
 import {SpriteActionConfig, SpriteAnimationState, SpriteRenderer} from './SpriteRenderer';
 import BackgroundMusic from './utils/BackgroundMusic';
+import {warningCatchChance} from './gameRules';
 import {enterFullscreenLandscape, FullscreenButton, RotateOverlay, TouchControls, useIsPortrait, useIsTouch} from './TouchControls';
 import {
   createFixedStepper,
@@ -1653,7 +1654,12 @@ export default function App() {
     // WARNED
     setMorale((prev) => Math.max(0, prev - 4));
     setWarnedToday((prev) => prev + 1);
-    const caughtChance = Math.min(0.5, Math.max(0.1, 0.45 - st.managerTrust / 200)) + 0.08 * st.warnedToday;
+    const caughtChance = warningCatchChance({
+      managerTrust: st.managerTrust,
+      warnedToday: st.warnedToday,
+      warningsUncaught: st.warningsUncaught,
+      tuanCovers: roommates.tuan.present && roommates.tuan.relationship >= 60,
+    });
     if (Math.random() < caughtChance) {
       setTimeout(() => triggerElectricShock('Quản lý Hùng nghe thấy bạn cảnh báo nạn nhân!', 20, 15), 350);
       return 'BỊ PHÁT HIỆN! Quản lý Hùng đứng ngay sau lưng bạn từ lúc nào...';
@@ -3221,6 +3227,12 @@ export default function App() {
             callsLeft={callsLeftToday}
             quota={todayQuota}
             paused={isGameMenuOpen || isHowToPlayOpen}
+            warnCatchChance={warningCatchChance({
+              managerTrust,
+              warnedToday,
+              warningsUncaught,
+              tuanCovers: roommates.tuan.present && roommates.tuan.relationship >= 60,
+            })}
             onChoice={handleCallChoice}
             onCallEnd={handleCallEnd}
             onExit={() => setSceneMode('OVERWORLD')}
@@ -3697,7 +3709,7 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">2. Ca Làm Việc Telesales (Ban Ngày):</strong>
                 <p>
-                  Mỗi ngày phải gọi đủ {DAILY_QUOTA} cuộc (phím 1-3 chọn câu trả lời). Mỗi cuộc 4-5 lượt; Nghi Ngờ chạm 95% là nạn nhân cúp máy. Mỗi cuộc tốn 10 Thể Lực. Đạt: +$220 hoa hồng vào Tiền, +1 Phiếu Cơm, +Lòng Tin; trượt: -10 Tinh Thần. Trượt 3 cuộc liên tiếp sẽ bị chích điện (-30 Thể Lực, -25 Tinh Thần). Thỉnh thoảng hiện lựa chọn ẩn "Cảnh báo nạn nhân" (phím 4): +Lương Tâm nhưng có thể bị quản lý phát hiện. Chưa xong KPI thì không được về ngủ. Cuộc gọi có giọng đọc thật (nạn nhân qua loa điện thoại, bạn đọc câu mình chọn); bật/tắt "Giọng đọc" ngay tại bàn gọi hoặc trong Menu, tắt Âm Thanh (SFX) cũng tắt giọng.
+                  Mỗi ngày phải gọi đủ {DAILY_QUOTA} cuộc (phím 1-3 chọn câu trả lời). Mỗi cuộc 4-5 lượt; Nghi Ngờ chạm 95% là nạn nhân cúp máy. Mỗi cuộc tốn 10 Thể Lực. Đạt: +$220 hoa hồng vào Tiền, +1 Phiếu Cơm, +Lòng Tin; trượt: -10 Tinh Thần. Trượt 3 cuộc liên tiếp sẽ bị chích điện (-30 Thể Lực, -25 Tinh Thần). Thỉnh thoảng hiện lựa chọn ẩn "Cảnh báo nạn nhân" (phím 4): +Lương Tâm nhưng có thể bị quản lý phát hiện (bị chích điện -20 Thể Lực/-15 Tinh Thần). Rủi ro hiện ngay trên nút: Lòng Tin của sếp càng thấp càng dễ bị để ý, cảnh báo nhiều lần trong cùng một ngày thì rủi ro tăng vọt, mỗi lần trót lọt sếp lại để ý thêm một chút; Tuấn thân thiết (từ 60 điểm) sẽ che chắn giúp bạn. Chưa xong KPI thì không được về ngủ. Cuộc gọi có giọng đọc thật (nạn nhân qua loa điện thoại, bạn đọc câu mình chọn); bật/tắt "Giọng đọc" ngay tại bàn gọi hoặc trong Menu, tắt Âm Thanh (SFX) cũng tắt giọng.
                 </p>
               </div>
 

@@ -12,6 +12,7 @@ import {TELESALES_VICTIMS} from './storyData';
 import {TelesalesChoice} from './gameTypes';
 import {gameAudio} from './utils/helper';
 import {voiceUrl} from './voices';
+import {warningRiskLabel} from './gameRules';
 
 export type CallResult = 'PASS' | 'FAIL' | 'WARNED';
 
@@ -23,6 +24,8 @@ export interface TelesalesSceneProps {
   callsLeft: number;
   quota: number;
   paused: boolean;
+  /** Current chance (0..1) the manager catches a warning; shown as a risk band. */
+  warnCatchChance: number;
   /** Apply per-reply stat effects. */
   onChoice: (trustDelta: number, conscienceDelta: number) => void;
   /** Call finished. Returns the summary text to show on the result card. */
@@ -353,7 +356,26 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
                   <span className="font-bold text-rose-400 shrink-0 flex items-center gap-1">
                     <AlertTriangle size={13} />[4] Cảnh báo nạn nhân:
                   </span>
-                  <span>{dialogue.warning}</span>
+                  <span className="flex-1">{dialogue.warning}</span>
+                  {(() => {
+                    const risk = warningRiskLabel(props.warnCatchChance);
+                    const cls =
+                      risk.tone === 'low'
+                        ? 'text-emerald-300/80 border-emerald-800/70'
+                        : risk.tone === 'mid'
+                        ? 'text-yellow-300/80 border-yellow-800/70'
+                        : risk.tone === 'high'
+                        ? 'text-orange-300/90 border-orange-800/70'
+                        : 'text-red-300 border-red-700/80';
+                    return (
+                      <span
+                        data-testid="warn-risk"
+                        title="Khả năng bị Quản lý Hùng phát hiện"
+                        className={`shrink-0 self-center ml-1 px-1.5 py-0.5 rounded border text-[10px] font-normal whitespace-nowrap ${cls}`}>
+                        Rủi ro: {risk.label}
+                      </span>
+                    );
+                  })()}
                 </button>
               )}
             </div>
