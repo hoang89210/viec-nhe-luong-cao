@@ -986,7 +986,7 @@ export default function App() {
   });
 
   // Kho Phế Liệu (junk storage hook mini-game): 5 drops per night
-  const JUNK_ATTEMPTS_PER_NIGHT = 5;
+  const JUNK_ATTEMPTS_PER_NIGHT = 1;
   const [junkAttemptsLeft, setJunkAttemptsLeft] = useState(JUNK_ATTEMPTS_PER_NIGHT);
 
   // Overlays & UI
@@ -1327,7 +1327,7 @@ export default function App() {
       setCallsLeftToday(save ? save.callsLeftToday : DAILY_QUOTA);
       setTodayQuota(save && save.todayQuota ? save.todayQuota : DAILY_QUOTA);
       setInventory(save ? save.inventory : {wire_cutters: false, flashlight: false, torn_map: false});
-      setJunkAttemptsLeft(save ? save.junkAttemptsLeft : JUNK_ATTEMPTS_PER_NIGHT);
+      setJunkAttemptsLeft(save ? Math.min(save.junkAttemptsLeft, JUNK_ATTEMPTS_PER_NIGHT) : JUNK_ATTEMPTS_PER_NIGHT);
       setFailStreak(save ? save.failStreak : 0);
       setPassesToday(save ? save.passesToday : 0);
       setWarnedToday(0);
@@ -1844,11 +1844,11 @@ export default function App() {
         } else if (inventory.flashlight && inventory.torn_map && inventory.wire_cutters) {
           showToast('Bạn đã có đủ đồ thoát thân. Trong kho chỉ còn rác vô dụng.');
         } else if (junkAttemptsLeft <= 0) {
-          showToast('Đêm nay bạn đã khều hết 5 lượt. Lính gác sắp đi tuần tới, quay lại đêm mai!');
+          showToast('Đêm nay bạn đã thả móc rồi (mỗi đêm chỉ 1 lượt). Lính gác sắp đi tuần tới, quay lại đêm mai!');
         } else {
           setSceneMode('JUNK_STORAGE');
           gameAudio.playConfirmSelect();
-          showToast('Kho Phế Liệu: dùng cần tre có móc khều đồ qua cửa sổ. Có 60 giây trước khi lính gác đi tuần tới!');
+          showToast('Kho Phế Liệu: dùng cần tre có móc khều đồ qua cửa sổ. Chỉ 1 lượt thả móc mỗi đêm, 60 giây trước khi lính gác đi tuần tới!');
         }
       } else if (nearby.action === 'FENCE') {
         if (!inventory.wire_cutters || !inventory.torn_map) {
@@ -2576,7 +2576,7 @@ export default function App() {
         const ctx = darkLayer.getContext('2d')!;
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.save();
-        const lightRadius = inventory.flashlight ? 250 : 135;
+        const lightRadius = inventory.flashlight ? 250 : 105; // no Đèn Pin: ~42% radius
         const px = p.x + p.width / 2;
         const py = p.y + p.height / 2;
 
@@ -2791,7 +2791,7 @@ export default function App() {
       const ctx = darkLayer.getContext('2d')!;
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.save();
-      const lightRadius = inventory.flashlight ? 290 : 160;
+      const lightRadius = inventory.flashlight ? 290 : 122; // no Đèn Pin: ~42% radius
       const px = p.x + p.width / 2;
       const py = p.y + p.height / 2;
 
@@ -3659,7 +3659,7 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">4. Lén Lút & Vượt Ngục (Ban Đêm):</strong>
                 <p>
-                  Ban đêm lính gác tuần tra với nón ánh sáng đèn pin. Hãy lén lút tìm Đèn Pin trong tủ đồ ký túc xá, rồi ra Kho Phế Liệu ngoài sân dùng cần tre khều [Bản Đồ Rách] và [Kìm Cắt Dây Thép] qua cửa sổ (60 giây, 5 lượt mỗi đêm, móc lệch tâm dễ tuột đồ). Bị nón đèn lính gác bắt được sẽ bị chích điện và mất 1 món đồ (ký túc xá là vùng an toàn). Khi đã có kìm và bản đồ, ban đêm tiếp cận hàng rào phía Đông để vượt rào: 90 giây, né nón đèn lính gác. Thất bại: bị phạt, nợ +$2.000, mất kìm và canh gác tăng cường.
+                  Ban đêm lính gác tuần tra với nón ánh sáng đèn pin. Hãy lén lút tìm Đèn Pin trong tủ đồ ký túc xá, rồi ra Kho Phế Liệu ngoài sân dùng cần tre khều [Bản Đồ Rách] và [Kìm Cắt Dây Thép] qua cửa sổ (60 giây, chỉ 1 lượt thả móc mỗi đêm; đồ quý bị rác đè lên, móc lệch tâm dễ tuột nên thường phải mất vài đêm). Không có Đèn Pin thì vùng sáng quanh bạn trong bóng tối (ban đêm và lúc vượt rào) chỉ còn rất nhỏ. Bị nón đèn lính gác bắt được sẽ bị chích điện và mất 1 món đồ (ký túc xá là vùng an toàn). Khi đã có kìm và bản đồ, ban đêm tiếp cận hàng rào phía Đông để vượt rào: 90 giây, né nón đèn lính gác. Thất bại: bị phạt, nợ +$2.000, mất kìm và canh gác tăng cường.
                 </p>
               </div>
 

@@ -134,24 +134,25 @@ function buildPile(owned: Record<string, boolean>): PileItem[] {
       rot: (Math.random() - 0.5) * 0.7,
     });
   }
-  // A couple of junk pieces dropped right over quest items to make it tricky
+  // Every quest item is buried under a wide piece of junk, leaving only a thin
+  // edge exposed: hooking that edge is off-centre (slippery), so with one drop
+  // per night it realistically takes several nights to fish out all items.
   items
     .filter((it) => it.kind === 'quest')
     .forEach((q) => {
-      if (Math.random() < 0.6) {
-        const kind: JunkKind = Math.random() < 0.5 ? 'slipper' : 'can';
-        const info = JUNK_INFO[kind];
-        items.push({
-          uid: uidCounter++,
-          kind,
-          name: info.name,
-          x: q.x + (Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 10),
-          y: q.y - q.h * 0.45,
-          w: info.w,
-          h: info.h,
-          rot: (Math.random() - 0.5) * 0.6,
-        });
-      }
+      const coverKinds: JunkKind[] = ['slipper', 'radio', 'tire'];
+      const kind = coverKinds[Math.floor(Math.random() * coverKinds.length)];
+      const info = JUNK_INFO[kind];
+      items.push({
+        uid: uidCounter++,
+        kind,
+        name: info.name,
+        x: q.x + (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 12),
+        y: q.y - q.h * 0.45,
+        w: info.w,
+        h: info.h,
+        rot: (Math.random() - 0.5) * 0.4,
+      });
     });
   return items;
 }
@@ -240,7 +241,7 @@ export default function JunkStorageScene({
     if (propsRef.current.paused || s.state !== 'AIM') return;
     if (propsRef.current.attemptsLeft <= 0) {
       gameAudio.playErrorBuzz();
-      flash('Hết lượt khều đêm nay!', '#f87171');
+      flash('Đêm nay đã thả móc rồi! Quay lại đêm mai.', '#f87171');
       return;
     }
     s.state = 'LOWER';
@@ -683,7 +684,7 @@ export default function JunkStorageScene({
             <Clock size={13} /> {timeLeft}s
           </span>
           <span className="text-slate-300">
-            Lượt khều: <strong className="text-yellow-400">{attemptsLeft}</strong>/5
+            Lượt khều: <strong className="text-yellow-400">{attemptsLeft}</strong>/1
           </span>
           <span className="hidden sm:flex items-center gap-1 text-slate-400">
             Đồ thoát thân:
@@ -760,7 +761,7 @@ export default function JunkStorageScene({
       </div>
       {attemptsLeft <= 0 && hud.state === 'AIM' && (
         <div className="text-xs text-red-300">
-          Hết lượt khều đêm nay. Hãy rời kho trước khi lính gác đi tuần tới!
+          Đã dùng lượt thả móc duy nhất của đêm nay. Hãy rời kho trước khi lính gác đi tuần tới, đêm mai quay lại!
         </div>
       )}
     </div>
