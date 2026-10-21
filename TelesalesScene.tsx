@@ -8,7 +8,6 @@
  */
 import {AlertTriangle, Phone, PhoneCall, PhoneOff, Zap} from 'lucide-react';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import PixelPortrait from './PixelPortrait';
 import {TELESALES_VICTIMS} from './storyData';
 import {TelesalesChoice} from './gameTypes';
 import {gameAudio} from './utils/helper';
@@ -185,8 +184,6 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
         <div className="w-32 h-32 rounded-lg border-2 border-[#3b544b] overflow-hidden bg-slate-900 mb-3 relative flex items-center justify-center">
           {victim.avatarKey && assets[victim.avatarKey] ? (
             <img src={assets[victim.avatarKey]?.src} alt={victim.name} className="w-full h-full object-contain" />
-          ) : victim.portraitSeed ? (
-            <PixelPortrait seed={victim.portraitSeed} size={124} expression={suspicion > 70 ? 'sad' : 'normal'} />
           ) : (
             <Phone size={48} className="text-emerald-500" />
           )}

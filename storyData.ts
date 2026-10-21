@@ -168,8 +168,7 @@ export const TELESALES_VICTIMS: TelesalesVictim[] = [
     id: 'co_tu',
     name: 'Cô Tư (Giáo viên về hưu)',
     role: 'Hiền lành, ở một mình, thích nuôi cá cảnh',
-    avatarKey: '',
-    portraitSeed: 4,
+    avatarKey: 'telesales_target_teacher',
     initialSuspicion: 25,
     dialogues: [
       {
@@ -214,8 +213,7 @@ export const TELESALES_VICTIMS: TelesalesVictim[] = [
     id: 'anh_teo',
     name: 'Anh Tèo (Shipper)',
     role: 'Chạy xe cả ngày, mê kiếm thêm thu nhập',
-    avatarKey: '',
-    portraitSeed: 7,
+    avatarKey: 'telesales_target_shipper',
     initialSuspicion: 35,
     dialogues: [
       {
@@ -277,7 +275,9 @@ export interface RoommateDef {
   id: RoommateId;
   name: string;
   role: string;
-  portraitSeed: number;
+  /** Asset keys (ASSETS_MANIFEST) for the bust portrait and the small sitting sprite. */
+  portraitKey: string;
+  sitKey: string;
   startRelationship: number;
   /** Talk lines by relationship band: [<30, 30-59, >=60]. */
   talk: [string[], string[], string[]];
@@ -288,7 +288,8 @@ export const ROOMMATES: RoommateDef[] = [
     id: 'tuan',
     name: 'Tuấn',
     role: 'Sinh viên 19 tuổi, nhát gan, lúc nào cũng đói',
-    portraitSeed: 1,
+    portraitKey: 'roommate_tuan',
+    sitKey: 'roommate_tuan_sit',
     startRelationship: 30,
     talk: [
       [
@@ -309,7 +310,8 @@ export const ROOMMATES: RoommateDef[] = [
     id: 'hoa',
     name: 'Chị Hoa',
     role: 'Bà mẹ hai con, ở trại lâu nhất, tốt bụng',
-    portraitSeed: 2,
+    portraitKey: 'roommate_hoa',
+    sitKey: 'roommate_hoa_sit',
     startRelationship: 40,
     talk: [
       [
@@ -330,7 +332,8 @@ export const ROOMMATES: RoommateDef[] = [
     id: 'bao',
     name: 'Bảo',
     role: 'Cựu kỹ thuật viên IT, ít nói, đeo kính nứt',
-    portraitSeed: 3,
+    portraitKey: 'roommate_bao',
+    sitKey: 'roommate_bao_sit',
     startRelationship: 35,
     talk: [
       [

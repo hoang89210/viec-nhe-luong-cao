@@ -85,6 +85,31 @@ const ASSETS_MANIFEST: Record<string, string> = {
   item_flashlight: 'assets/images/item_flashlight.png',
   bg_compound_dorm: 'assets/images/bg_compound_dorm.png',
   item_wire_cutters: 'assets/images/item_wire_cutters.png',
+  // Added scenes (generated to match the Playground art style)
+  telesales_target_teacher: 'assets/images/telesales_target_teacher.png',
+  telesales_target_shipper: 'assets/images/telesales_target_shipper.png',
+  roommate_tuan: 'assets/images/roommate_tuan.png',
+  roommate_hoa: 'assets/images/roommate_hoa.png',
+  roommate_bao: 'assets/images/roommate_bao.png',
+  roommate_tuan_sit: 'assets/images/roommate_tuan_sit.png',
+  roommate_hoa_sit: 'assets/images/roommate_hoa_sit.png',
+  roommate_bao_sit: 'assets/images/roommate_bao_sit.png',
+  prop_wall_calendar: 'assets/images/prop_wall_calendar.png',
+  kho_wall_frame: 'assets/images/kho_wall_frame.png',
+  kho_interior: 'assets/images/kho_interior.png',
+  kho_scrap_tile: 'assets/images/kho_scrap_tile.png',
+  kho_pole_hook: 'assets/images/kho_pole_hook.png',
+  junk_can: 'assets/images/junk_can.png',
+  junk_slipper: 'assets/images/junk_slipper.png',
+  junk_radio: 'assets/images/junk_radio.png',
+  junk_bottle: 'assets/images/junk_bottle.png',
+  junk_tire: 'assets/images/junk_tire.png',
+  event_inspection: 'assets/images/event_inspection.png',
+  event_outage: 'assets/images/event_outage.png',
+  event_new_arrivals: 'assets/images/event_new_arrivals.png',
+  event_roommate_sold: 'assets/images/event_roommate_sold.png',
+  event_betrayal: 'assets/images/event_betrayal.png',
+  event_quiet: 'assets/images/event_quiet.png',
 };
 
 // Character Sprite Configs with exact dimensions from read_assets_metadata (frameWidth: 512, frameHeight: 512)
@@ -782,6 +807,15 @@ const MAX_DAYS = 20; // game lasts up to 20 days
 const ESCAPE_FAIL_DEBT = 2000; // +debt per failed escape
 const RESCUE_DELAY_DAYS = 3; // survive N days after messaging family
 const WHISTLEBLOWER_TARGET = 10; // warnings not caught
+/** Illustration shown on each morning event card. */
+const DAILY_EVENT_ART: Record<DailyEventView['id'], string> = {
+  INSPECTION: 'event_inspection',
+  OUTAGE: 'event_outage',
+  NEW_ARRIVALS: 'event_new_arrivals',
+  ROOMMATE_SOLD: 'event_roommate_sold',
+  TUAN_BETRAYAL: 'event_betrayal',
+  QUIET: 'event_quiet',
+};
 const NIGHT_ACTIONS = 3; // roommate actions per night
 const PASS_MONEY = 40;
 const PASS_RANSOM = 600;
@@ -2299,71 +2333,76 @@ export default function App() {
         450,
       );
 
-      // 1D-2. Wall calendar in the dorm (days crossed off)
+      // 1D-2. Wall calendar in the dorm (paper asset, days crossed off on top)
       ctx.save();
-      const calX = 232;
-      const calY = 176;
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.fillRect(calX + 3, calY + 3, 54, 50);
-      ctx.fillStyle = '#cfc8ad';
-      ctx.fillRect(calX, calY, 54, 50);
-      ctx.fillStyle = '#7f1d1d';
-      ctx.fillRect(calX, calY, 54, 9);
-      ctx.fillStyle = '#f5f5f4';
-      ctx.font = 'bold 7px Courier New, monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(`NGÀY ${dayNumber}/${MAX_DAYS}`, calX + 27, calY + 7);
-      for (let d = 1; d <= MAX_DAYS; d++) {
-        const cx = calX + 3 + ((d - 1) % 5) * 10;
-        const cy = calY + 12 + Math.floor((d - 1) / 5) * 9;
-        ctx.fillStyle = d === dayNumber ? '#b45309' : '#e7e1c9';
-        ctx.fillRect(cx, cy, 8, 7);
-        if (d < dayNumber) {
-          ctx.strokeStyle = '#991b1b';
-          ctx.lineWidth = 1.2;
-          ctx.beginPath();
-          ctx.moveTo(cx, cy);
-          ctx.lineTo(cx + 8, cy + 7);
-          ctx.moveTo(cx + 8, cy);
-          ctx.lineTo(cx, cy + 7);
-          ctx.stroke();
+      {
+        const calX = 230;
+        const calY = 170;
+        const calW = 58;
+        const calH = 60;
+        const calImg = assets['prop_wall_calendar'];
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(calX + 4, calY + 6, calW - 4, calH - 6);
+        if (calImg && calImg.complete && calImg.naturalWidth > 0) {
+          ctx.drawImage(calImg, calX, calY, calW, calH);
+        } else {
+          ctx.fillStyle = '#cfc8ad';
+          ctx.fillRect(calX, calY, calW, calH);
+        }
+        ctx.fillStyle = '#f3e9d2';
+        ctx.font = 'bold 7px Courier New, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`NGÀY ${dayNumber}/${MAX_DAYS}`, calX + calW / 2, calY + calH * 0.17);
+        const gx = calX + calW * 0.1;
+        const gy = calY + calH * 0.28;
+        const cw = (calW * 0.8) / 5;
+        const ch = (calH * 0.62) / 4;
+        for (let d = 1; d <= MAX_DAYS; d++) {
+          const cx = gx + ((d - 1) % 5) * cw;
+          const cy = gy + Math.floor((d - 1) / 5) * ch;
+          if (d === dayNumber) {
+            ctx.strokeStyle = '#9a3412';
+            ctx.lineWidth = 1.2;
+            ctx.strokeRect(cx + 0.5, cy + 0.5, cw - 1, ch - 1);
+          } else if (d < dayNumber) {
+            ctx.strokeStyle = '#7f1d1d';
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(cx + 1.5, cy + 1.5);
+            ctx.lineTo(cx + cw - 1.5, cy + ch - 1.5);
+            ctx.moveTo(cx + cw - 1.5, cy + 1.5);
+            ctx.lineTo(cx + 1.5, cy + ch - 1.5);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = 'rgba(59, 52, 38, 0.35)';
+            ctx.fillRect(cx + cw / 2 - 1, cy + ch / 2 - 1, 2, 2);
+          }
         }
       }
       ctx.restore();
 
       // 1D-3. Roommates sitting on the dorm floor (only those still here)
       ctx.save();
-      (['tuan', 'hoa', 'bao'] as RoommateId[]).forEach((id, i) => {
-        const st = roommates[id];
-        const rx = 112 + i * 42;
-        const ry = 512;
-        if (!st.present) {
-          ctx.fillStyle = 'rgba(100, 116, 139, 0.35)';
-          ctx.fillRect(rx - 2, ry + 26, 22, 4);
-          return;
-        }
-        const skin = ['#c9a27e', '#b98d68', '#c4a07c'][i];
-        const shirt = ['#56604f', '#6b4f3a', '#3d4a52'][i];
+      ROOMMATES.forEach((def, i) => {
+        const st = roommates[def.id];
+        if (!st.present) return;
+        const cx = 122 + i * 42; // feet center x
+        const by = 548; // feet baseline
+        const img = assets[def.sitKey];
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(rx - 4, ry + 28, 28, 5);
-        ctx.fillStyle = shirt;
-        ctx.fillRect(rx, ry + 12, 20, 18);
-        ctx.fillStyle = skin;
-        ctx.fillRect(rx + 4, ry, 12, 12);
-        ctx.fillStyle = '#1b1b1b';
-        ctx.fillRect(rx + 4, ry - 2, 12, 4);
-        if (id === 'hoa') ctx.fillRect(rx + 7, ry - 5, 6, 3);
-        if (id === 'bao') {
-          ctx.fillStyle = '#9ca3af';
-          ctx.fillRect(rx + 5, ry + 5, 4, 1);
-          ctx.fillRect(rx + 11, ry + 5, 4, 1);
+        ctx.beginPath();
+        ctx.ellipse(cx, by - 2, 17, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        if (img && img.complete && img.naturalWidth > 0) {
+          const h = 46;
+          const w = (img.naturalWidth / img.naturalHeight) * h;
+          ctx.drawImage(img, cx - w / 2, by - h, w, h);
         }
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(rx + 6, ry + 5, 2, 2);
-        ctx.fillRect(rx + 12, ry + 5, 2, 2);
-        // relationship heart
+        // relationship marker
         ctx.fillStyle = st.relationship >= 60 ? '#f472b6' : st.relationship >= 30 ? '#fbbf24' : '#64748b';
-        ctx.fillRect(rx + 8, ry - 12, 4, 4);
+        ctx.beginPath();
+        ctx.arc(cx, by - 52, 2.5, 0, Math.PI * 2);
+        ctx.fill();
       });
       ctx.restore();
 
@@ -3119,6 +3158,7 @@ export default function App() {
             onFixPhone={handleFixPhone}
             onSendMessage={handleSendMessage}
             onExit={() => setSceneMode('OVERWORLD')}
+            assets={assets}
           />
         )}
 
@@ -3655,6 +3695,14 @@ export default function App() {
             className={`w-full max-w-md bg-[#14201c] border-2 rounded-xl p-5 shadow-2xl text-white ${
               dailyEvent.tone === 'bad' ? 'border-red-700' : dailyEvent.tone === 'good' ? 'border-emerald-500' : 'border-slate-600'
             }`}>
+            {assets[DAILY_EVENT_ART[dailyEvent.id]] && (
+              <img
+                src={assets[DAILY_EVENT_ART[dailyEvent.id]]!.src}
+                alt=""
+                data-testid="daily-event-art"
+                className="w-full aspect-video object-cover rounded-md border border-black/60 mb-3"
+              />
+            )}
             <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
               Sáng ngày {dayNumber}/{MAX_DAYS} · Sự kiện
             </div>

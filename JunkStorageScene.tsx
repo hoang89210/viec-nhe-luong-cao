@@ -43,6 +43,21 @@ const JUNK_INFO: Record<JunkKind, {name: string; w: number; h: number}> = {
   tire: {name: 'Lốp Xe Mòn', w: 74, h: 34},
 };
 
+/** Generated sprite for each junk kind (see design/asset_manifest.json). */
+const JUNK_ART: Record<JunkKind, string> = {
+  can: 'junk_can',
+  slipper: 'junk_slipper',
+  radio: 'junk_radio',
+  bottle: 'junk_bottle',
+  tire: 'junk_tire',
+};
+/** Transparent window opening inside kho_wall_frame.png (960x540 image space). */
+const FRAME_HOLE = {x: 226, y: 123, w: 500, h: 288};
+/** Rusty blank plate above the window in kho_wall_frame.png, used for the sign. */
+const FRAME_PLATE = {x: 360, y: 12, w: 226, h: 60};
+/** kho_pole_hook.png anchor points: pole centre x, lowest point of the hook curve, pole slice for tiling. */
+const POLE_ART = {centerX: 24, hookBottomY: 881, sliceTop: 120, sliceBottom: 700, scale: 0.36};
+
 // Logical canvas size
 const W = 960;
 const H = 540;
@@ -414,58 +429,50 @@ export default function JunkStorageScene({
       ctx.fillStyle = `rgba(254, 240, 138, ${g})`;
       ctx.fillRect(w / 4, -h / 2, 3, 3);
       ctx.fillRect(w / 4 - 3, -h / 2 + 3, 9, 1);
-    } else if (it.kind === 'can') {
-      ctx.fillStyle = '#6b4a2b';
-      ctx.fillRect(-w / 2, -h / 2, w, h);
-      ctx.fillStyle = '#8a5a2b';
-      ctx.fillRect(-w / 2, -h / 2 + 8, w, 10);
-      ctx.fillStyle = '#4a3220';
-      ctx.fillRect(-w / 2, -h / 2, w, 4);
-      ctx.fillRect(-w / 2 + 6, -h / 2 + 22, 6, 10);
-      ctx.fillStyle = '#9a3412';
-      ctx.fillRect(w / 2 - 10, h / 2 - 12, 8, 8);
-    } else if (it.kind === 'slipper') {
-      ctx.fillStyle = '#3f4a3c';
-      ctx.fillRect(-w / 2, -h / 2 + 8, w, h - 8);
-      ctx.fillStyle = '#2b332a';
-      ctx.fillRect(-w / 2, h / 2 - 5, w, 5);
-      ctx.fillStyle = '#7c6f5a';
-      ctx.fillRect(-w / 2 + 14, -h / 2, 6, 12);
-      ctx.fillRect(-w / 2 + 14, -h / 2, 22, 5);
-    } else if (it.kind === 'radio') {
-      ctx.fillStyle = '#3a3a33';
-      ctx.fillRect(-w / 2, -h / 2, w, h);
-      ctx.fillStyle = '#23231f';
-      ctx.fillRect(-w / 2 + 6, -h / 2 + 8, 30, 30);
-      ctx.fillStyle = '#4b4b42';
-      for (let gy = 0; gy < 5; gy++) ctx.fillRect(-w / 2 + 8, -h / 2 + 11 + gy * 6, 26, 2);
-      ctx.fillStyle = '#5c5c50';
-      ctx.fillRect(w / 2 - 28, -h / 2 + 8, 20, 8);
-      ctx.fillStyle = '#7f1d1d';
-      ctx.fillRect(w / 2 - 16, -h / 2 + 24, 6, 6);
-      ctx.strokeStyle = '#6b7280';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(w / 2 - 8, -h / 2);
-      ctx.lineTo(w / 2 + 6, -h / 2 - 22);
-      ctx.stroke();
-    } else if (it.kind === 'bottle') {
-      ctx.fillStyle = 'rgba(148, 163, 150, 0.55)';
-      ctx.fillRect(-w / 2, -h / 2 + 12, w, h - 12);
-      ctx.fillRect(-w / 4, -h / 2 + 2, w / 2, 12);
-      ctx.fillStyle = '#365314';
-      ctx.fillRect(-w / 4, -h / 2, w / 2, 4);
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.fillRect(-w / 2 + 3, -h / 2 + 16, 3, h - 22);
-    } else if (it.kind === 'tire') {
-      ctx.fillStyle = '#1c1f1d';
-      ctx.fillRect(-w / 2, -h / 2, w, h);
-      ctx.fillStyle = '#2c312e';
-      for (let tx = -w / 2 + 4; tx < w / 2 - 4; tx += 10) ctx.fillRect(tx, -h / 2 + 3, 5, h - 6);
-      ctx.fillStyle = '#111312';
-      ctx.fillRect(-w / 2 + 18, -4, w - 36, 8);
+    } else {
+      const img = assets[JUNK_ART[it.kind]];
+      if (img && img.complete && img.naturalWidth > 0) {
+        const ar = img.naturalWidth / img.naturalHeight;
+        let dw = w;
+        let dh = w / ar;
+        if (dh > h * 1.35) {
+          dh = h * 1.35;
+          dw = dh * ar;
+        }
+        ctx.filter = 'brightness(0.8)';
+        ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+        ctx.filter = 'none';
+      } else {
+        ctx.fillStyle = '#3b4034';
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+      }
     }
     ctx.restore();
+  };
+
+  const scrapPatternRef = useRef<CanvasPattern | null>(null);
+
+  /** Draws the bamboo pole sprite with its hook curve bottom at tip+11, tiling the shaft up to y=0. */
+  const drawPole = (ctx: CanvasRenderingContext2D, poleX: number, tip: number) => {
+    const img = assets['kho_pole_hook'];
+    if (!img || !img.complete || img.naturalWidth === 0) {
+      ctx.fillStyle = '#7c7346';
+      ctx.fillRect(poleX - 5, 0, 10, tip);
+      return;
+    }
+    const k = img.naturalHeight / 900; // asset may be re-exported at another size
+    const sc = POLE_ART.scale / k;
+    const dx = poleX - POLE_ART.centerX * k * sc;
+    const dy = tip + 11 - POLE_ART.hookBottomY * k * sc;
+    ctx.drawImage(img, dx, dy, img.naturalWidth * sc, img.naturalHeight * sc);
+    // tile a shaft slice upwards until the top of the canvas
+    const sliceH = (POLE_ART.sliceBottom - POLE_ART.sliceTop) * k;
+    let top = dy + POLE_ART.sliceTop * k * sc;
+    while (top > 0) {
+      const h = sliceH * sc;
+      ctx.drawImage(img, 0, POLE_ART.sliceTop * k, img.naturalWidth, sliceH, dx, top - h, img.naturalWidth * sc, h);
+      top -= h;
+    }
   };
 
   const draw = (ctx: CanvasRenderingContext2D) => {
@@ -474,75 +481,65 @@ export default function JunkStorageScene({
     ctx.imageSmoothingEnabled = false;
     if (s.shake > 0) ctx.translate((Math.random() - 0.5) * s.shake, (Math.random() - 0.5) * s.shake);
 
-    // --- Interior behind the window (dark storage) ---
-    ctx.fillStyle = '#121815';
+    // --- Interior behind the window (dark storage, generated backdrop) ---
+    ctx.fillStyle = '#0d1210';
     ctx.fillRect(0, 0, W, H);
     ctx.save();
     ctx.beginPath();
     ctx.rect(WIN.x, WIN.y, WIN.w, WIN.h);
     ctx.clip();
-    // back wall planks
-    ctx.fillStyle = '#1b231f';
-    ctx.fillRect(WIN.x, WIN.y, WIN.w, WIN.h);
-    for (let px = WIN.x; px < WIN.x + WIN.w; px += 48) {
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.fillRect(px, WIN.y, 2, WIN.h);
+    const interior = assets['kho_interior'];
+    if (interior && interior.complete && interior.naturalWidth > 0) {
+      const ih = (interior.naturalHeight / interior.naturalWidth) * WIN.w;
+      ctx.drawImage(interior, WIN.x, WIN.y, WIN.w, ih);
+      const fade = ctx.createLinearGradient(0, WIN.y + ih - 60, 0, WIN.y + ih);
+      fade.addColorStop(0, 'rgba(13, 18, 16, 0)');
+      fade.addColorStop(1, 'rgba(13, 18, 16, 1)');
+      ctx.fillStyle = fade;
+      ctx.fillRect(WIN.x, WIN.y + ih - 60, WIN.w, 60);
     }
-    // shelf silhouettes
-    ctx.fillStyle = '#151c19';
-    ctx.fillRect(WIN.x + 20, WIN.y + 60, 160, 8);
-    ctx.fillRect(WIN.x + WIN.w - 200, WIN.y + 90, 180, 8);
-    ctx.fillStyle = '#222b26';
-    ctx.fillRect(WIN.x + 40, WIN.y + 38, 26, 22);
-    ctx.fillRect(WIN.x + 90, WIN.y + 44, 40, 16);
-    ctx.fillRect(WIN.x + WIN.w - 170, WIN.y + 64, 30, 26);
 
-    // Pile body (layered mounds)
-    ctx.fillStyle = '#2a2f26';
+    // Pile body: scrap texture clipped to the pile outline (same shape as the physics surface)
+    ctx.save();
     ctx.beginPath();
     ctx.moveTo(WIN.x, WIN.y + WIN.h);
     for (let x = WIN.x; x <= WIN.x + WIN.w; x += 8) ctx.lineTo(x, pileSurfaceY(x) + 6);
     ctx.lineTo(WIN.x + WIN.w, WIN.y + WIN.h);
     ctx.closePath();
-    ctx.fill();
-    // Pile texture: scrap bits
-    for (let i = 0; i < 140; i++) {
-      const rx = WIN.x + ((i * 97) % WIN.w);
-      const surf = pileSurfaceY(rx);
-      const ry = surf + 14 + ((i * 53) % Math.max(10, WIN.y + WIN.h - surf - 10));
-      ctx.fillStyle = i % 3 === 0 ? '#3b4034' : i % 3 === 1 ? '#22261f' : '#4a3b28';
-      ctx.fillRect(rx, ry, 6 + (i % 5) * 3, 3 + (i % 3) * 2);
+    const tile = assets['kho_scrap_tile'];
+    if (tile && tile.complete && tile.naturalWidth > 0) {
+      if (!scrapPatternRef.current) scrapPatternRef.current = ctx.createPattern(tile, 'repeat');
+      ctx.fillStyle = scrapPatternRef.current || '#2a2f26';
+    } else {
+      ctx.fillStyle = '#2a2f26';
     }
+    ctx.fill();
+    // shade the pile deeper towards the bottom
+    const pileShade = ctx.createLinearGradient(0, WIN.y + WIN.h - 200, 0, WIN.y + WIN.h);
+    pileShade.addColorStop(0, 'rgba(0, 0, 0, 0.1)');
+    pileShade.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+    ctx.fillStyle = pileShade;
+    ctx.fill();
+    ctx.restore();
+    // rim light along the pile surface
+    ctx.strokeStyle = 'rgba(160, 175, 150, 0.18)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = WIN.x; x <= WIN.x + WIN.w; x += 8) {
+      if (x === WIN.x) ctx.moveTo(x, pileSurfaceY(x) + 6);
+      else ctx.lineTo(x, pileSurfaceY(x) + 6);
+    }
+    ctx.stroke();
 
     // Items (quest items first so junk covers them)
     const pile = pileRef.current;
     pile.filter((it) => it.kind === 'quest').forEach((it) => drawItem(ctx, it));
     pile.filter((it) => it.kind !== 'quest').forEach((it) => drawItem(ctx, it));
 
-    // Pole + hook
+    // Pole + hook (generated sprite)
     const poleX = s.poleX;
     const tip = s.tipY;
-    // bamboo pole from above the window down to the hook
-    ctx.fillStyle = '#7c7346';
-    ctx.fillRect(poleX - 5, WIN.y - 10, 10, tip - WIN.y - 8 + 10);
-    ctx.fillStyle = '#5f5833';
-    ctx.fillRect(poleX + 2, WIN.y - 10, 3, tip - WIN.y - 8 + 10);
-    // bamboo nodes
-    ctx.fillStyle = '#4d4728';
-    for (let ny = WIN.y + 30; ny < tip - 14; ny += 46) ctx.fillRect(poleX - 6, ny, 12, 4);
-    // rope binding
-    ctx.fillStyle = '#a08a5c';
-    ctx.fillRect(poleX - 6, tip - 16, 12, 3);
-    ctx.fillRect(poleX - 6, tip - 11, 12, 3);
-    // wire hook (J shape)
-    ctx.strokeStyle = '#9ca3af';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(poleX, tip - 10);
-    ctx.lineTo(poleX, tip + 4);
-    ctx.arc(poleX + 7, tip + 4, 7, Math.PI, 0, true);
-    ctx.lineTo(poleX + 14, tip - 2);
-    ctx.stroke();
+    drawPole(ctx, poleX, tip);
 
     // Hooked item drawn on top
     if (s.hooked) drawItem(ctx, s.hooked);
@@ -582,51 +579,41 @@ export default function JunkStorageScene({
     }
     ctx.restore(); // end clip
 
-    // --- Grimy concrete wall around the window ---
-    ctx.fillStyle = '#3a4136';
-    ctx.fillRect(0, 0, W, WIN.y);
-    ctx.fillRect(0, WIN.y + WIN.h, W, H - WIN.y - WIN.h);
-    ctx.fillRect(0, WIN.y, WIN.x, WIN.h);
-    ctx.fillRect(WIN.x + WIN.w, WIN.y, W - WIN.x - WIN.w, WIN.h);
-    // wall stains & cracks
-    for (let i = 0; i < 60; i++) {
-      const sx = (i * 151) % W;
-      const sy = (i * 89) % H;
-      if (sx > WIN.x - 4 && sx < WIN.x + WIN.w + 4 && sy > WIN.y - 4 && sy < WIN.y + WIN.h + 4) continue;
-      ctx.fillStyle = i % 2 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.03)';
-      ctx.fillRect(sx, sy, 10 + (i % 4) * 8, 4 + (i % 3) * 3);
+    // --- Grimy concrete wall + broken window frame (generated, hole mapped onto WIN) ---
+    const frame = assets['kho_wall_frame'];
+    const fsx = WIN.w / FRAME_HOLE.w;
+    const fsy = WIN.h / FRAME_HOLE.h;
+    if (frame && frame.complete && frame.naturalWidth > 0) {
+      ctx.drawImage(frame, WIN.x - FRAME_HOLE.x * fsx, WIN.y - FRAME_HOLE.y * fsy, 960 * fsx, 540 * fsy);
+    } else {
+      ctx.fillStyle = '#3a4136';
+      ctx.fillRect(0, 0, W, WIN.y);
+      ctx.fillRect(0, WIN.y + WIN.h, W, H - WIN.y - WIN.h);
+      ctx.fillRect(0, WIN.y, WIN.x, WIN.h);
+      ctx.fillRect(WIN.x + WIN.w, WIN.y, W - WIN.x - WIN.w, WIN.h);
     }
-    // window frame
-    ctx.strokeStyle = '#1f2420';
-    ctx.lineWidth = 10;
-    ctx.strokeRect(WIN.x - 5, WIN.y - 5, WIN.w + 10, WIN.h + 10);
-    ctx.strokeStyle = '#5b6152';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(WIN.x - 10, WIN.y - 10, WIN.w + 20, WIN.h + 20);
-    // broken pane edge top-left
-    ctx.fillStyle = 'rgba(180, 200, 190, 0.12)';
+    // the pole enters from above the window, in front of the wall
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(WIN.x, WIN.y);
-    ctx.lineTo(WIN.x + 90, WIN.y);
-    ctx.lineTo(WIN.x, WIN.y + 60);
-    ctx.fill();
-    // player's hands holding the pole above the window
-    ctx.fillStyle = '#6b5b45';
-    ctx.fillRect(poleX - 14, 12, 28, 14);
-    ctx.fillStyle = '#7c7346';
-    ctx.fillRect(poleX - 5, 0, 10, WIN.y);
-    // stencil sign (rusty plate; the pole passes behind it)
-    ctx.fillStyle = '#2a2f27';
-    ctx.fillRect(W / 2 - 160, 24, 320, 34);
-    ctx.strokeStyle = '#1a1e19';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(W / 2 - 160, 24, 320, 34);
-    ctx.fillStyle = '#c7b98a';
+    ctx.rect(0, 0, W, WIN.y + 2);
+    ctx.clip();
+    drawPole(ctx, poleX, tip);
+    ctx.restore();
+    // sign on the rusty plate (the pole passes behind it)
+    if (frame && frame.complete && frame.naturalWidth > 0) {
+      const kx = frame.naturalWidth / 960;
+      const ky = frame.naturalHeight / 540;
+      ctx.drawImage(frame, FRAME_PLATE.x * kx, FRAME_PLATE.y * ky, FRAME_PLATE.w * kx, FRAME_PLATE.h * ky, W / 2 - 170, 14, 340, 48);
+    } else {
+      ctx.fillStyle = '#2a2f27';
+      ctx.fillRect(W / 2 - 160, 24, 320, 34);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.font = 'bold 18px Courier New, monospace';
     ctx.textAlign = 'center';
+    ctx.fillText('KHO PHẾ LIỆU - CẤM VÀO', W / 2 + 1, 45);
+    ctx.fillStyle = '#d6c99a';
     ctx.fillText('KHO PHẾ LIỆU - CẤM VÀO', W / 2, 44);
-    ctx.fillStyle = '#7f1d1d';
-    ctx.fillRect(W / 2 - 150, 52, 300, 3);
 
     // Flash message
     if (s.flashMsg) {

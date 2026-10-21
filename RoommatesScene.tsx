@@ -10,7 +10,6 @@
  */
 import {MessageCircle, Moon, Smartphone, Utensils, X} from 'lucide-react';
 import React from 'react';
-import PixelPortrait, {Expression} from './PixelPortrait';
 import {ROOMMATES, RoommateId} from './storyData';
 import {gameAudio} from './utils/helper';
 
@@ -37,24 +36,28 @@ export interface RoommatesSceneProps {
   onFixPhone: () => void;
   onSendMessage: () => void;
   onExit: () => void;
+  assets: Record<string, HTMLImageElement | null | undefined>;
 }
 
 export const SHARE_FOOD_PRICE = 6;
 
-/** Wall calendar with crossed-off days. */
-export function WallCalendar({day, maxDays}: {day: number; maxDays: number}) {
+/** Wall calendar with crossed-off days, drawn over the paper calendar asset. */
+export function WallCalendar({day, maxDays, paper}: {day: number; maxDays: number; paper?: string}) {
   return (
-    <div className="bg-[#d6cfb4] text-[#2b2a24] rounded-sm p-1.5 shadow-lg border border-[#8f876a] w-[150px] rotate-[-2deg]">
-      <div className="text-[9px] font-bold text-center border-b border-[#8f876a] mb-1 tracking-wider">LỊCH • NGÀY {day}</div>
-      <div className="grid grid-cols-5 gap-[2px]">
+    <div className="relative w-[150px] h-[157px] rotate-[-2deg] drop-shadow-lg select-none">
+      {paper && <img src={paper} alt="" className="absolute inset-0 w-full h-full" style={{imageRendering: 'pixelated'}} />}
+      <div className="absolute left-0 right-0 top-[12%] text-center text-[8px] font-bold tracking-wider text-[#f3e9d2]">
+        NGÀY {day}/{maxDays}
+      </div>
+      <div className="absolute left-[9%] right-[9%] top-[27%] bottom-[8%] grid grid-cols-5 grid-rows-4 gap-[2px] text-[#3b3426]">
         {Array.from({length: maxDays}, (_, i) => i + 1).map((d) => (
           <div
             key={d}
-            className={`relative h-[16px] text-[8px] flex items-center justify-center ${
-              d === day ? 'bg-[#b45309] text-white font-bold' : 'bg-[#e8e2c8]'
+            className={`relative text-[9px] flex items-center justify-center font-bold ${
+              d === day ? 'outline outline-2 outline-[#9a3412] rounded-sm text-[#7c2d12]' : ''
             }`}>
             {d}
-            {d < day && <span className="absolute inset-0 flex items-center justify-center text-[#7f1d1d] font-black text-[13px] leading-none">✕</span>}
+            {d < day && <span className="absolute inset-0 flex items-center justify-center text-[#7f1d1d] font-black text-[15px] leading-none opacity-85">✕</span>}
           </div>
         ))}
       </div>
@@ -66,9 +69,6 @@ function band(rel: number) {
   return rel >= 60 ? 'Thân thiết' : rel >= 30 ? 'Quen biết' : 'Xa cách';
 }
 
-function expressionFor(rel: number): Expression {
-  return rel >= 60 ? 'happy' : rel >= 30 ? 'normal' : 'sad';
-}
 
 export default function RoommatesScene(p: RoommatesSceneProps) {
   const noActions = p.actionsLeft <= 0;
@@ -97,7 +97,7 @@ export default function RoommatesScene(p: RoommatesSceneProps) {
             )}
           </div>
         </div>
-        <WallCalendar day={p.dayNumber} maxDays={p.maxDays} />
+        <WallCalendar day={p.dayNumber} maxDays={p.maxDays} paper={p.assets['prop_wall_calendar']?.src} />
       </div>
 
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -112,7 +112,15 @@ export default function RoommatesScene(p: RoommatesSceneProps) {
                 st.present ? 'border-[#2c423b]' : 'border-red-900/60 opacity-60'
               }`}>
               <div className="flex gap-3 items-center">
-                <PixelPortrait seed={def.portraitSeed} size={72} expression={st.present ? expressionFor(rel) : 'sad'} dim={!st.present} />
+                <div className="w-[72px] h-[72px] shrink-0 rounded-md border-2 border-[#3b544b] bg-[#0f1715] overflow-hidden flex items-end justify-center">
+                  {p.assets[def.portraitKey] && (
+                    <img
+                      src={p.assets[def.portraitKey]!.src}
+                      alt={def.name}
+                      className={`w-full h-full object-contain object-bottom ${st.present ? '' : 'grayscale opacity-50'}`}
+                    />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-yellow-300 text-sm">{def.name}</div>
                   <div className="text-[10px] text-slate-400 leading-tight">{def.role}</div>

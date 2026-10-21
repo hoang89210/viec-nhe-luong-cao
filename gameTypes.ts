@@ -29,10 +29,8 @@ export interface TelesalesVictim {
   id: string;
   name: string;
   role: string;
-  /** Image asset key, or empty string to use a procedural pixel portrait. */
+  /** Image asset key (ASSETS_MANIFEST) for the caller portrait. */
   avatarKey: string;
-  /** Seed for the procedural portrait when there's no image asset. */
-  portraitSeed?: number;
   initialSuspicion: number;
   dialogues: TelesalesDialogue[];
 }
