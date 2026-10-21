@@ -919,6 +919,7 @@ interface SaveData {
   rescueDay: number | null;
   outageTonight: boolean;
   todayQuota?: number;
+  unpaidFeeStreak?: number;
   score: number;
 }
 
@@ -1025,6 +1026,8 @@ export default function App() {
   // Random daily events
   const [dailyEvent, setDailyEvent] = useState<DailyEventView | null>(null);
   const [outageTonight, setOutageTonight] = useState(false);
+  // consecutive mornings the living fee could not be paid in full
+  const [unpaidFeeStreak, setUnpaidFeeStreak] = useState(0);
 
   // DOM-level shock FX (works over every scene)
   const [shockFx, setShockFx] = useState(false);
@@ -1348,6 +1351,7 @@ export default function App() {
       setMessageSent(save ? save.messageSent : false);
       setRescueDay(save ? save.rescueDay : null);
       setOutageTonight(save ? save.outageTonight : false);
+      setUnpaidFeeStreak(save && save.unpaidFeeStreak ? save.unpaidFeeStreak : 0);
       setDailyEvent(null);
       setEndingType(null);
       setIsGameMenuOpen(false);
@@ -1409,6 +1413,7 @@ export default function App() {
       rescueDay,
       outageTonight,
       todayQuota,
+      unpaidFeeStreak,
       score: gameState.score,
     };
     try {
@@ -1419,7 +1424,7 @@ export default function App() {
     gameState.status, gameState.score, sceneMode, dayNumber, isNight, stamina, morale, money, ransomFund,
     managerTrust, conscience, callsLeftToday, inventory, junkAttemptsLeft, failStreak, passesToday,
     mealTickets, extraDebt, warningsUncaught, escapeFailures, roommates, nightActionsLeft, hoaSchedule,
-    phoneFixed, messageSent, rescueDay, outageTonight, todayQuota,
+    phoneFixed, messageSent, rescueDay, outageTonight, todayQuota, unpaidFeeStreak,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -1461,14 +1466,25 @@ export default function App() {
     // Daily living fee; shortfall goes onto the debt
     let cash = money;
     let feeNote: string;
+    let feeAlert: string | undefined;
+    let rentShockReason: string | null = null;
     if (cash >= LIVING_FEE) {
       cash -= LIVING_FEE;
       feeNote = `Phí ăn ở: -$${LIVING_FEE}.`;
+      setUnpaidFeeStreak(0);
     } else {
       const short = LIVING_FEE - cash;
+      const streak = unpaidFeeStreak + 1;
       cash = 0;
       setExtraDebt((d) => d + short);
+      setUnpaidFeeStreak(streak);
       feeNote = `Phí ăn ở $${LIVING_FEE}: không đủ tiền, $${short} bị cộng vào nợ!`;
+      if (streak >= 2) {
+        rentShockReason = `Không nộp đủ tiền nhà ${streak} ngày liên tiếp!`;
+        feeAlert = `⚡ ${rentShockReason} Quản lý cho chích điện đầu ca: -30 Thể Lực, -25 Tinh Thần. Nộp đủ $${LIVING_FEE} sáng mai để thoát.`;
+      } else {
+        feeAlert = `Thiếu tiền nhà! Mai còn thiếu là bị chích điện. (Giữ lại ít nhất $${LIVING_FEE} tiền mặt trước khi ngủ.)`;
+      }
     }
     setWarnedToday(0);
     setNightActionsLeft(NIGHT_ACTIONS);
@@ -1574,8 +1590,11 @@ export default function App() {
     setMoney(cash);
     setCallsLeftToday(quota);
     setTodayQuota(quota);
-    setDailyEvent({...ev, fee: feeNote});
+    setDailyEvent({...ev, fee: feeNote, feeAlert});
     showToast(`Trời sáng: Ngày ${newDay}/${MAX_DAYS}. ${feeNote} KPI hôm nay: ${quota} cuộc.`);
+    // 2nd+ consecutive unpaid morning: shocked at start of shift (after the morning recovery;
+    // the collapse check still fires if a stat hits 0)
+    if (rentShockReason) triggerElectricShock(rentShockReason);
   };
 
   // ---------------------------------------------------------------------------
@@ -3242,7 +3261,7 @@ export default function App() {
               </div>
 
               <p className="text-xs text-slate-300 mb-4">
-                Dùng tiền hoa hồng kiếm được để mua thực phẩm hồi phục Thể Lực và Tinh Thần. Mỗi sáng bị trừ ${LIVING_FEE} phí ăn ở.
+                Dùng tiền hoa hồng kiếm được để mua thực phẩm hồi phục Thể Lực và Tinh Thần. Mỗi sáng bị trừ ${LIVING_FEE} phí ăn ở (thiếu 2 sáng liên tiếp là bị chích điện).
               </p>
 
               <div data-testid="deposit-panel" className="mb-4 bg-[#101c18] border border-emerald-800 rounded-lg p-3">
@@ -3707,7 +3726,7 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">3. Căn Tin & Năng Lượng:</strong>
                 <p>
-                  Căn tin: Cơm Trắng $30 (+10 Thể Lực), Mì Gói $60 (+20/+5), Cơm Thịt $150 (+35/+10); Phiếu Cơm chỉ đổi được Cơm Trắng. Mỗi sáng bị trừ $100 phí ăn ở (thiếu thì cộng vào nợ); ngủ dậy chỉ hồi +20 Thể Lực. Tiền không tự vào Quỹ Chuộc Thân: hãy nộp ở quầy trong căn tin ($100/$500/Nộp hết), quỹ đủ 15.000 + nợ phát sinh là được chuộc thân. Tiền mặt trong túi có thể bị lính gác lấy một nửa khi khám phòng. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã! Ban đêm, ghé "Bạn Cùng Phòng" trong ký túc xá để trò chuyện / chia đồ ăn (3 lượt mỗi đêm): Chị Hoa thân thiết (từ 60 điểm) sẽ tiết lộ lịch gác (lính đi chậm hơn, -20% tầm nhìn lính gác cả ban đêm lẫn màn vượt rào, hiện lộ trình tuần tra, gửi tin nhắn ít rủi ro hơn), Bảo sửa được điện thoại cũ, còn Tuấn đói quá có thể phản bội bạn. Mỗi sáng có thể xảy ra sự kiện ngẫu nhiên (khám phòng, mất điện, người mới, bạn cùng phòng bị "bán"). Game tự lưu, có thể Tiếp Tục ở màn hình chính.
+                  Căn tin: Cơm Trắng $30 (+10 Thể Lực), Mì Gói $60 (+20/+5), Cơm Thịt $150 (+35/+10); Phiếu Cơm chỉ đổi được Cơm Trắng. Mỗi sáng bị trừ $100 phí ăn ở (thiếu thì phần thiếu cộng vào nợ; thiếu 2 sáng liên tiếp trở lên thì bị chích điện đầu ca -30 Thể Lực/-25 Tinh Thần mỗi sáng, nộp đủ một sáng là hết bị phạt); ngủ dậy chỉ hồi +20 Thể Lực. Tiền không tự vào Quỹ Chuộc Thân: hãy nộp ở quầy trong căn tin ($100/$500/Nộp hết), quỹ đủ 15.000 + nợ phát sinh là được chuộc thân. Tiền mặt trong túi có thể bị lính gác lấy một nửa khi khám phòng. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã! Ban đêm, ghé "Bạn Cùng Phòng" trong ký túc xá để trò chuyện / chia đồ ăn (3 lượt mỗi đêm): Chị Hoa thân thiết (từ 60 điểm) sẽ tiết lộ lịch gác (lính đi chậm hơn, -20% tầm nhìn lính gác cả ban đêm lẫn màn vượt rào, hiện lộ trình tuần tra, gửi tin nhắn ít rủi ro hơn), Bảo sửa được điện thoại cũ, còn Tuấn đói quá có thể phản bội bạn. Mỗi sáng có thể xảy ra sự kiện ngẫu nhiên (khám phòng, mất điện, người mới, bạn cùng phòng bị "bán"). Game tự lưu, có thể Tiếp Tục ở màn hình chính.
                 </p>
               </div>
 
@@ -3771,6 +3790,11 @@ export default function App() {
             {dailyEvent.fee && (
               <div data-testid="living-fee" className="text-[11px] mb-4 px-2 py-1.5 rounded bg-black/30 border border-slate-700 text-amber-200">
                 {dailyEvent.fee} Tiền còn lại: ${money} · Quỹ: ${ransomFund}/{ransomTarget}
+              </div>
+            )}
+            {dailyEvent.feeAlert && (
+              <div data-testid="rent-alert" className="text-[11px] font-bold mb-4 -mt-2 px-2 py-1.5 rounded bg-red-950/70 border border-red-600 text-red-200">
+                {dailyEvent.feeAlert}
               </div>
             )}
             <button

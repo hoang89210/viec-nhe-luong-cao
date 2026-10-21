@@ -371,6 +371,8 @@ export interface DailyEventView {
   tone: 'bad' | 'neutral' | 'good';
   /** Morning living-fee line shown on the card. */
   fee?: string;
+  /** Rent warning / rent-shock notice shown in red on the morning card */
+  feeAlert?: string;
 }
 
 /** Warning signs shown after every ending. */
