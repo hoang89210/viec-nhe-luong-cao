@@ -1,0 +1,133 @@
+{
+  "title": "Vi\u1ec7c Nh\u1eb9 L\u01b0\u01a1ng Cao",
+  "hook": "Tr\u1ed1n tho\u00e1t c\u1ea1m b\u1eaby vi\u1ec7c",
+  "game_overview": "Tr\u00f2 ch\u01a1i sinh t\u1ed3n ch\u00e2m bi\u1ebfm s\u00e2u cay: s\u1ed1ng s\u00f3t trong tr\u1ea1i l\u1eeba \u0111\u1ea3o vi\u1ec7c l\u00e0m, g\u1ecdi \u0111i\u1ec7n telesales phi l\u00fd v\u00e0 l\u00e9n l\u00fat t\u00ecm \u0111\u01b0\u1eddng \u0111\u00e0o tho\u00e1t.",
+  "artstyle": "pixelated",
+  "genre": "action_adventure",
+  "winning_condition": "\u0110\u00e0o tho\u00e1t th\u00e0nh c\u00f4ng qua h\u00e0ng r\u00e0o d\u00e2y th\u00e9p gai trong \u0111\u00eam ho\u1eb7c t\u00edch l\u0169y \u0111\u1ee7 15,000 USD Qu\u1ef9 Chu\u1ed9c Th\u00e2n.",
+  "losing_condition": "Th\u1ec3 L\u1ef1c ho\u1eb7c Tinh Th\u1ea7n ch\u1ea1m m\u1ee9c 0 do ki\u1ec7t s\u1ee9c v\u00e0 b\u1ecb tr\u1eebng ph\u1ea1t.",
+  "player_mode": "single_player",
+  "supported_orientations": [
+    "landscape",
+    "wide"
+  ],
+  "input_methods": [
+    "touch",
+    "mouse",
+    "keyboard",
+    "dpad"
+  ],
+  "score_options": {
+    "score_type": "points",
+    "score_order": "higher_is_better"
+  },
+  "low_end_device_support": true,
+  "mobile_playable": true,
+  "tv_playable": true,
+  "language": [
+    "vi"
+  ],
+  "content_descriptors": [
+    "fear_horror",
+    "suggestive_humor"
+  ],
+  "controls": [
+    {
+      "input": "Ph\u00edm M\u0169i T\u00ean / WASD",
+      "action": "Di chuy\u1ec3n nh\u00e2n v\u1eadt 4 h\u01b0\u1edbng tr\u00ean b\u1ea3n \u0111\u1ed3 khu compound v\u00e0 m\u00ea cung v\u01b0\u1ee3t r\u00e0o."
+    },
+    {
+      "input": "Ph\u00edm Space / Ph\u00edm E / N\u00fat A",
+      "action": "T\u01b0\u01a1ng t\u00e1c v\u1edbi b\u00e0n l\u00e0m vi\u1ec7c, NPC b\u1ea1n c\u00f9ng ph\u00f2ng, c\u0103n tin, t\u1ee7 \u0111\u1ed3 v\u00e0 h\u00e0ng r\u00e0o."
+    },
+    {
+      "input": "Chu\u1ed9t / Ch\u1ea1m M\u00e0n H\u00ecnh",
+      "action": "Ch\u1ecdn c\u00e2u tho\u1ea1i telesales tr\u00ean m\u00e0n h\u00ecnh m\u00e1y t\u00ednh, mua th\u1ee9c \u0103n t\u1ea1i c\u0103n tin."
+    },
+    {
+      "input": "Virtual D-Pad (Di \u0111\u1ed9ng)",
+      "action": "N\u00fat \u0111i\u1ec1u h\u01b0\u1edbng \u1ea3o 4 chi\u1ec1u g\u00f3c d\u01b0\u1edbi b\u00ean tr\u00e1i m\u00e0n h\u00ecnh \u0111i\u1ec7n tho\u1ea1i."
+    },
+    {
+      "input": "Virtual Button A/Interact (Di \u0111\u1ed9ng)",
+      "action": "N\u00fat t\u01b0\u01a1ng t\u00e1c c\u1ea3m \u1ee9ng g\u00f3c d\u01b0\u1edbi b\u00ean ph\u1ea3i m\u00e0n h\u00ecnh \u0111i\u1ec7n tho\u1ea1i."
+    }
+  ],
+  "sections": [
+    {
+      "title": "Design Pillars",
+      "content": "1. Ch\u00e2m bi\u1ebfm \u0111en t\u1ed1i v\u00e0 c\u1ea3nh t\u1ec9nh (Dark Satire & Social Awareness): T\u00e1i hi\u1ec7n hi\u1ec7n th\u1ef1c kh\u1eafc nghi\u1ec7t c\u1ee7a n\u1ea1n bu\u00f4n ng\u01b0\u1eddi qua k\u1ecbch b\u1ea3n l\u1eeba \u0111\u1ea3o c\u01b0\u1eddng \u0111i\u1ec7u h\u00f3a ng\u1edb ng\u1ea9n (n\u00f4ng tr\u1ea1i s\u1ea7u ri\u00eang bay, t\u1eadp \u0111o\u00e0n \u0111\u00e0o kho\u00e1ng m\u1eb7t tr\u0103ng), gi\u1eef v\u1eefng t\u00ednh gi\u00e1o d\u1ee5c v\u00e0 nh\u00e2n v\u0103n. 2. Nh\u1ecbp th\u1edf hai n\u1eeda ng\u00e0y - \u0111\u00eam (Dual Gameplay Loop): Ban ng\u00e0y c\u0103ng th\u1eb3ng v\u1edbi KPI telesales \u00e1p l\u1ef1c cao t\u1ea1i b\u00e0n l\u00e0m vi\u1ec7c; ban \u0111\u00eam l\u00e9n l\u00fat tr\u1ed1n t\u1ea7m nh\u00ecn b\u1ea3o v\u1ec7 \u0111\u1ec3 t\u00ecm trang b\u1ecb \u0111\u00e0o t\u1ea9u. 3. Th\u1ea9m m\u1ef9 ng\u1ed9t ng\u1ea1t nh\u01b0ng h\u00e0i h\u01b0\u1edbc (Claustrophobic Papers Please Pixel Art): B\u1ea3ng m\u00e0u xanh r\u00eau \u00faa, x\u00e1m b\u1ea9n, \u0111\u00e8n hu\u1ef3nh quang ch\u1eadp ch\u1eddn, hi\u1ec7u \u1ee9ng glitch gi\u1eadt \u0111i\u1ec7n kh\u00f4ng b\u1ea1o l\u1ef1c m\u00e1u me nh\u01b0ng \u0111\u1ea7y s\u1ee9c n\u1eb7ng tr\u1eebng ph\u1ea1t.",
+      "summary": "Ba tr\u1ee5 c\u1ed9t thi\u1ebft k\u1ebf \u0111\u1ecbnh h\u00ecnh tr\u1ea3i nghi\u1ec7m ng\u01b0\u1eddi ch\u01a1i."
+    },
+    {
+      "title": "Core Loop",
+      "content": "M\u1ed7i ng\u00e0y m\u1edbi b\u1eaft \u0111\u1ea7u t\u1ea1i K\u00fd T\u00fac X\u00e1 (Dorm) -> Ng\u01b0\u1eddi ch\u01a1i di chuy\u1ec3n sang Ph\u00f2ng G\u1ecdi (Call Room) \u0111\u1ec3 ho\u00e0n th\u00e0nh KPI t\u1ed1i thi\u1ec3u 5 cu\u1ed9c g\u1ecdi l\u1eeba \u0111\u1ea3o k\u1ecbch b\u1ea3n phi l\u00fd -> C\u00e2n b\u1eb1ng gi\u1eefa ch\u1ec9 s\u1ed1 L\u00f2ng Tin c\u1ee7a qu\u1ea3n l\u00fd v\u00e0 L\u01b0\u01a1ng T\u00e2m c\u00e1 nh\u00e2n -> Tr\u01b0a/Chi\u1ec1u gh\u00e9 C\u0103n Tin (Canteen) \u0103n u\u1ed1ng h\u1ed3i ph\u1ee5c Th\u1ec3 L\u1ef1c -> \u0110\u00eam xu\u1ed1ng: t\u1ef1 do ng\u1ee7 \u0111\u1ec3 h\u1ed3i m\u00e1u ho\u1eb7c l\u1ebbn ra s\u00e2n t\u00ecm v\u1eadt ph\u1ea9m v\u01b0\u1ee3t ng\u1ee5c (\u0110\u00e8n pin, K\u00ecm c\u1eaft, B\u1ea3n \u0111\u1ed3) tr\u00e1nh n\u00f3n t\u1ea7m nh\u00ecn c\u1ee7a b\u1ea3o v\u1ec7 -> Khi \u0111\u1ee7 trang b\u1ecb, k\u00edch ho\u1ea1t m\u00e0n \u0110\u00e0o Tho\u00e1t M\u00ea Cung \u1edf H\u00e0ng R\u00e0o trong 90 gi\u00e2y -> K\u1ebft th\u00fac b\u1eb1ng 1 trong 4 k\u1ebft c\u1ee5c v\u00e0 b\u1ea3ng th\u00f4ng tin c\u1ea3nh b\u00e1o th\u1ef1c t\u1ebf.",
+      "summary": "V\u00f2ng l\u1eb7p sinh t\u1ed3n theo chu k\u1ef3 ng\u00e0y v\u00e0 \u0111\u00eam."
+    },
+    {
+      "title": "Core Mechanics",
+      "content": "1. H\u1ec7 th\u1ed1ng ch\u1ec9 s\u1ed1 sinh t\u1ed3n: Th\u1ec3 L\u1ef1c (0-100), Tinh Th\u1ea7n (0-100), Ti\u1ec1n (USD), L\u00f2ng Tin Qu\u1ea3n L\u00fd (0-100), L\u01b0\u01a1ng T\u00e2m (0-100), Qu\u1ef9 Chu\u1ed9c Th\u00e2n (M\u1ee5c ti\u00eau 15,000 USD). 2. Minigame Telesales M\u00e0n H\u00ecnh B\u00e0n L\u00e0m Vi\u1ec7c: M\u1ed7i cu\u1ed9c g\u1ecdi c\u00f3 n\u1ea1n nh\u00e2n v\u1edbi ch\u00e2n dung, h\u1ed3 s\u01a1 ng\u1eafn v\u00e0 m\u1ee9c \u0111\u1ed9 Nghi Ng\u1edd (0-100%). Ng\u01b0\u1eddi ch\u01a1i ch\u1ecdn 1 trong 3 c\u00e2u \u0111\u1ed1i \u0111\u00e1p k\u1ecbch b\u1ea3n h\u00e0i h\u01b0\u1edbc ho\u1eb7c l\u1ef1a ch\u1ecdn th\u1ee9 4 'C\u1ea3nh b\u00e1o n\u1ea1n nh\u00e2n' (+L\u01b0\u01a1ng T\u00e2m, nguy hi\u1ec3m). Th\u1ea5t b\u1ea1i 3 l\u1ea7n li\u00ean ti\u1ebfp b\u1ecb ch\u00edch \u0111i\u1ec7n ph\u1ea1t (-Th\u1ec3 L\u1ef1c, -Tinh Th\u1ea7n, rung l\u1eafc m\u00e0n h\u00ecnh). 3. L\u00e9n l\u00fat ban \u0111\u00eam (Night Stealth): L\u00ednh g\u00e1c tu\u1ea7n tra theo qu\u1ef9 \u0111\u1ea1o c\u1ed1 \u0111\u1ecbnh v\u1edbi n\u00f3n t\u1ea7m nh\u00ecn \u00e1nh \u0111\u00e8n v\u00e0ng/\u0111\u1ecf. N\u1ebfu b\u1ecb ph\u00e1t hi\u1ec7n s\u1ebd b\u1ecb ph\u1ea1t, m\u1ea5t v\u1eadt ph\u1ea9m \u0111ang nh\u1eb7t. 4. M\u00ea cung h\u00e0ng r\u00e0o (Escape Scene): M\u00e0n ch\u1ea1y tr\u1ed1n 90 gi\u00e2y trong \u0111\u00eam t\u1ed1i v\u1edbi v\u00f9ng s\u00e1ng \u0111\u00e8n pin h\u1eb9p v\u00e0 3 l\u00ednh g\u00e1c tu\u1ea7n tra.",
+      "summary": "C\u00e1c c\u01a1 ch\u1ebf sinh t\u1ed3n, telesales v\u00e0 l\u00e9n l\u00fat."
+    },
+    {
+      "title": "Movement & Scrolling Alignment",
+      "content": "Scrolling Axis: \u0110a h\u01b0\u1edbng (Multi-Directional Free-Roaming) v\u1edbi camera b\u00e1m s\u00e1t ng\u01b0\u1eddi ch\u01a1i m\u01b0\u1ee3t m\u00e0 trong khu\u00f4n vi\u00ean khu ph\u1ee9c h\u1ee3p. Asset Orientation: G\u00f3c nh\u00ecn nghi\u00eang 3/4 (Oblique Top-Down 2D RPG) phong c\u00e1ch Pok\u00e9mon c\u1ed5 \u0111i\u1ec3n. Nh\u00e2n v\u1eadt c\u00f3 ho\u1ea1t \u1ea3nh 4 h\u01b0\u1edbng (L\u00ean, Xu\u1ed1ng, Tr\u00e1i, Ph\u1ea3i). Movement Physics: Di chuy\u1ec3n d\u1ea1ng l\u01b0\u1edbi b\u01b0\u1edbc \u0111i m\u01b0\u1ee3t m\u00e0 v\u1edbi va ch\u1ea1m h\u00ecnh h\u1ed9p nghi\u00eam ng\u1eb7t ng\u0103n xuy\u00ean t\u01b0\u1eddng hay h\u00e0ng r\u00e0o. Camera Behavior: Camera b\u00e1m t\u00e2m ng\u01b0\u1eddi ch\u01a1i c\u00f3 v\u00f9ng ch\u1ebft nh\u1eb9 (soft deadzone).",
+      "summary": "Quy chu\u1ea9n chuy\u1ec3n \u0111\u1ed9ng 4 h\u01b0\u1edbng d\u1ea1ng \u00f4 l\u01b0\u1edbi RPG."
+    },
+    {
+      "title": "Visual Hierarchy & Layering",
+      "content": "Layer Separation: M\u1eb7t \u0111\u1ea5t b\u00ea t\u00f4ng v\u00e0 s\u00e0n ph\u00f2ng ph\u1ee7 m\u00e0u r\u00eau x\u00e1m t\u1ed1i m\u1edd kh\u00f4ng c\u1ea3n tr\u1edf. L\u1edbp \u0111\u1ed1i t\u01b0\u1ee3ng t\u01b0\u01a1ng t\u00e1c (b\u00e0n m\u00e1y t\u00ednh, m\u00e1y b\u00e1n th\u1ee9c \u0103n, t\u1ee7 \u0111\u1ed3, h\u00e0ng r\u00e0o) c\u00f3 vi\u1ec1n t\u01b0\u01a1ng ph\u1ea3n n\u1ed5i b\u1eadt. L\u1edbp th\u1ef1c th\u1ec3 (ng\u01b0\u1eddi ch\u01a1i, b\u1ea3o v\u1ec7, qu\u1ea3n l\u00fd) c\u00f3 b\u1ea3ng m\u00e0u \u00e1o cam/xanh \u0111\u1ed3ng ph\u1ee5c nh\u1eadn di\u1ec7n t\u1ee9c th\u00ec. Hazard Language: N\u00f3n t\u1ea7m nh\u00ecn c\u1ee7a l\u00ednh g\u00e1c chi\u1ebfu tia s\u00e1ng b\u00e1n nguy\u1ec7t v\u00e0ng nh\u1ea1t khi tu\u1ea7n tra v\u00e0 chuy\u1ec3n \u0111\u1ecf r\u1ef1c c\u00f9ng \u00e2m thanh c\u1ea3nh b\u00e1o nh\u1ecbp tim khi ng\u01b0\u1eddi ch\u01a1i b\u01b0\u1edbc v\u00e0o. Tr\u1eebng ph\u1ea1t: To\u00e0n m\u00e0n h\u00ecnh l\u00f3e \u0111\u1ecf \u0111\u1eadm, hi\u1ec7u \u1ee9ng s\u00f3ng nhi\u1ec5u glitch TV CRT v\u00e0 rung ch\u1ea5n v\u1eadt l\u00fd.",
+      "summary": "Ph\u00e2n t\u1ea7ng tr\u1ef1c quan r\u00f5 r\u1ec7t v\u00e0 ng\u00f4n ng\u1eef m\u00e0u s\u1eafc c\u1ea3nh b\u00e1o."
+    },
+    {
+      "title": "Telesales & Quota System (Desk Mini-Game)",
+      "content": "Giao di\u1ec7n ph\u00f3ng to b\u00e0n l\u00e0m vi\u1ec7c nh\u00ecn t\u1eeb tr\u00ean xu\u1ed1ng: M\u00e0n h\u00ecnh CRT ch\u1eef xanh phosphor c\u1ed5 \u0111i\u1ec3n hi\u1ec3n th\u1ecb \u1ea3nh \u0111\u1ea1i di\u1ec7n v\u00e0 d\u00f2ng chat c\u1ee7a \u0111\u1ed1i t\u01b0\u1ee3ng; \u0111i\u1ec7n tho\u1ea1i b\u00e0n reo chu\u00f4ng; t\u1eadp k\u1ecbch b\u1ea3n; phi\u1ebfu ghi KPI v\u00e0 b\u00e1t c\u01a1m tr\u01b0a. M\u1ed7i cu\u1ed9c g\u1ecdi g\u1ed3m 4-5 l\u01b0\u1ee3t t\u01b0\u01a1ng t\u00e1c h\u1ed9i tho\u1ea1i. N\u1ed9i dung k\u1ecbch b\u1ea3n ho\u00e0n to\u00e0n h\u01b0 c\u1ea5u parodies (G\u00f3i \u0111\u1ea7u t\u01b0 n\u00f4ng tr\u01b0\u1eddng s\u1ea7u ri\u00eang kh\u00f4ng tr\u1ecdng l\u1ef1c, Chuy\u1ebfn du l\u1ecbch l\u1eb7n bi\u1ec3n sao H\u1ecfa, X\u1ed5 s\u1ed1 v\u0169 tr\u1ee5). L\u1ef1a ch\u1ecdn \u0111\u00e1p l\u1ea1i \u1ea3nh h\u01b0\u1edfng thanh Nghi Ng\u1edd c\u1ee7a kh\u00e1ch h\u00e0ng: N\u1ebfu nghi ng\u1edd v\u01b0\u1ee3t 100% kh\u00e1ch c\u00fap m\u00e1y (T\u00fat... t\u00fat); n\u1ebfu thuy\u1ebft ph\u1ee5c th\u00e0nh c\u00f4ng, kh\u00e1ch chuy\u1ec3n c\u1ecdc (+Ti\u1ec1n, +L\u00f2ng Tin, +Qu\u1ef9 Chu\u1ed9c Th\u00e2n, nh\u1eadn Phi\u1ebfu C\u01a1m).",
+      "summary": "M\u00f4 ph\u1ecfng b\u00e0n l\u00e0m vi\u1ec7c \u00e1p l\u1ef1c cao v\u1edbi k\u1ecbch b\u1ea3n l\u1eeba \u0111\u1ea3o l\u1ed1 b\u1ecbch."
+    },
+    {
+      "title": "Stealth & Patrol FSM (Night Sneak & Fence Escape)",
+      "content": "L\u00ednh g\u00e1c ho\u1ea1t \u0111\u1ed9ng theo 4 tr\u1ea1ng th\u00e1i: 1. Unaware: Tu\u1ea7n tra theo l\u1ed9 tr\u00ecnh \u0111\u1ecbnh s\u1eb5n, n\u00f3n th\u1ecb gi\u00e1c v\u00e0ng nh\u1ea1t 45 \u0111\u1ed9, t\u1ea7m xa 4 \u00f4. 2. Suspicious: Nghe th\u1ea5y ti\u1ebfng \u0111\u1ed9ng ho\u1eb7c b\u00f3ng ng\u01b0\u1eddi l\u01b0\u1edbt qua m\u00e9p n\u00f3n th\u1ecb gi\u00e1c, d\u1eebng l\u1ea1i quan s\u00e1t 1.5 gi\u00e2y v\u1edbi d\u1ea5u h\u1ecfi (?) tr\u00ean \u0111\u1ea7u. 3. Searching: N\u00f3n th\u1ecb gi\u00e1c chuy\u1ec3n sang cam nh\u1ea1t, b\u01b0\u1edbc nhanh v\u1ec1 v\u1ecb tr\u00ed kh\u1ea3 nghi. 4. Alert/Caught: B\u1eaft \u0111\u01b0\u1ee3c nh\u00e2n v\u1eadt, c\u00f2i b\u00e1o \u0111\u1ed9ng h\u00fa, m\u00e0n h\u00ecnh ch\u1edbp \u0111\u1ecf gi\u1eadt \u0111i\u1ec7n, nh\u00e2n v\u1eadt b\u1ecb gi\u1ea3i v\u1ec1 gi\u01b0\u1eddng ng\u1ee7 v\u00e0 ch\u1ecbu ph\u1ea1t n\u1ee3 n\u1ee3 th\u00eam 2,000 USD.",
+      "summary": "H\u1ec7 th\u1ed1ng tr\u1ea1ng th\u00e1i tu\u1ea7n tra AI c\u1ee7a l\u00ednh g\u00e1c."
+    },
+    {
+      "title": "Canteen & Economy System",
+      "content": "C\u0103n tin m\u1edf c\u1eeda gi\u1edd \u0103n tr\u01b0a v\u00e0 chi\u1ec1u t\u1ed1i. Ng\u01b0\u1eddi ch\u01a1i d\u00f9ng Ti\u1ec1n ki\u1ebfm \u0111\u01b0\u1ee3c t\u1eeb hoa h\u1ed3ng l\u1eeba \u0111\u1ea3o \u0111\u1ec3 mua th\u1ef1c ph\u1ea9m sinh t\u1ed3n: C\u01a1m tr\u1eafng (2 USD: +15 Th\u1ec3 L\u1ef1c), M\u00ec g\u00f3i (5 USD: +30 Th\u1ec3 L\u1ef1c, +5 Tinh Th\u1ea7n), C\u01a1m th\u1ecbt (10 USD: +60 Th\u1ec3 L\u1ef1c, +20 Tinh Th\u1ea7n). Thi\u1ebfu th\u1ec3 l\u1ef1c d\u1eabn t\u1edbi b\u01b0\u1edbc \u0111i ch\u1eadm ch\u1ea1p v\u00e0 kh\u00f4ng th\u1ec3 ch\u1ea1y tr\u1ed1n b\u1ea3o v\u1ec7 v\u00e0o ban \u0111\u00eam.",
+      "summary": "Qu\u1ea3n l\u00fd kinh t\u1ebf v\u00e0 n\u0103ng l\u01b0\u1ee3ng sinh t\u1ed3n."
+    },
+    {
+      "title": "Endings & Public Awareness Framework",
+      "content": "Game c\u00f3 4 k\u1ebft c\u1ee5c: 1. Tr\u1ed1n Tho\u00e1t (V\u01b0\u1ee3t qua m\u00ea cung h\u00e0ng r\u00e0o b\u1eb1ng k\u00ecm v\u00e0 \u0111\u00e8n pin trong \u0111\u00eam) -> Tr\u1edf v\u1ec1 qu\u00ea h\u01b0\u01a1ng an to\u00e0n. 2. Chu\u1ed9c Th\u00e2n (T\u00edch l\u0169y \u0111\u1ee7 15,000 USD trong Qu\u1ef9 Chu\u1ed9c Th\u00e2n) -> \u0110\u01b0\u1ee3c qu\u1ea3n l\u00fd th\u1ea3 t\u1ef1 do nh\u01b0ng \u00e1m \u1ea3nh kh\u00f4n ngu\u00f4i. 3. K\u1ebb Tr\u1edf Th\u00e0nh Qu\u1ef7 (L\u00f2ng Tin Qu\u1ea3n L\u00fd > 90 v\u00e0 L\u01b0\u01a1ng T\u00e2m < 10) -> Tr\u1edf th\u00e0nh tay sai \u0111\u1eafc l\u1ef1c qu\u1ea3n l\u00fd khu giam c\u1ea7m ti\u1ebfp theo. 4. G\u1ee5c Ng\u00e3 (Th\u1ec3 L\u1ef1c ho\u1eb7c Tinh Th\u1ea7n t\u1ee5t v\u1ec1 0) -> Ki\u1ec7t s\u1ee9c b\u1ecb \u0111\u01b0a v\u00e0o ph\u00f2ng bi\u1ec7t giam. Sau B\u1ea4T K\u1ef2 k\u1ebft th\u00fac n\u00e0o, m\u00e0n h\u00ecnh lu\u00f4n chuy\u1ec3n v\u1ec1 B\u1ea3ng Th\u00f4ng Tin C\u1ea3nh T\u1ec9nh C\u1ed9ng \u0110\u1ed3ng li\u1ec7t k\u00ea c\u00e1c th\u1ee7 \u0111o\u1ea1n l\u1eeba \u0111\u1ea3o vi\u1ec7c l\u00e0m th\u1ef1c t\u1ebf, s\u1ed1 \u0111\u01b0\u1eddng d\u00e2y n\u00f3ng C\u1ea3nh S\u00e1t v\u00e0 \u0110\u1ea1i S\u1ee9 Qu\u00e1n Vi\u1ec7t Nam b\u1ea3o h\u1ed9 c\u00f4ng d\u00e2n.",
+      "summary": "B\u1ed1n k\u1ebft th\u00fac ph\u00e2n nh\u00e1nh v\u00e0 th\u00f4ng \u0111i\u1ec7p c\u1ea3nh t\u1ec9nh nh\u00e2n \u0111\u1ea1o."
+    },
+    {
+      "title": "Juice & Game Feel",
+      "content": "Anticipation Juice: Ti\u1ebfng g\u00f5 ph\u00edm l\u00e1ch c\u00e1ch khi v\u0103n b\u1ea3n typewriter hi\u1ec7n l\u00ean; nh\u1ecbp tim \u0111\u1eadp d\u1ed3n d\u1eadp khi \u0111\u1ee9ng g\u1ea7n m\u00e9p n\u00f3n t\u1ea7m nh\u00ecn c\u1ee7a l\u00ednh g\u00e1c. State Change Juice: Hi\u1ec7u \u1ee9ng chuy\u1ec3n ng\u00e0y/\u0111\u00eam m\u01b0\u1ee3t m\u00e0 t\u1eeb \u00e1nh s\u00e1ng hu\u1ef3nh quang v\u00e0ng r\u00eau sang \u0111\u00eam \u0111en \u00e1nh xanh l\u1ea1nh l\u1ebdo; s\u01b0\u01a1ng m\u00f9 \u0111en gi\u1edbi h\u1ea1n t\u1ea7m nh\u00ecn ban \u0111\u00eam quanh v\u00f2ng tr\u00f2n \u0111\u00e8n pin. Impact Juice: Rung ch\u1ea5n m\u00e0n h\u00ecnh gi\u1eadt m\u1ea1nh (screen shake 3 c\u1ea5p \u0111\u1ed9), hi\u1ec7u \u1ee9ng gi\u1eadt \u0111i\u1ec7n glitch s\u1ecdc ngang \u0111\u1ecf khi nh\u1eadn h\u00ecnh ph\u1ea1t; \u00e2m thanh chu\u00f4ng \u0111i\u1ec7n tho\u1ea1i vang r\u1ec1n v\u00e0 ti\u1ebfng t\u00fat t\u00fat d\u1ee9t kho\u00e1t khi b\u1ecb c\u00fap m\u00e1y.",
+      "summary": "Ph\u1ea3n h\u1ed3i nghe nh\u00ecn s\u1ed1ng \u0111\u1ed9ng v\u00e0 t\u00e1c \u0111\u1ed9ng gi\u1eadt g\u00e2n."
+    },
+    {
+      "title": "Characters & Enemies",
+      "content": "Nh\u00e2n v\u1eadt ch\u00ednh (Minh): N\u1ea1n nh\u00e2n tr\u1ebb b\u1ecb d\u1ee5 d\u1ed7 sang n\u01b0\u1edbc ngo\u00e0i l\u00e0m 'vi\u1ec7c nh\u1eb9 l\u01b0\u01a1ng cao'. Qu\u1ea3n l\u00fd H\u00f9ng: G\u00e3 \u0111\u1ed1c c\u00f4ng nghi\u00eam kh\u1eafc lu\u00f4n r\u00ecnh r\u1eadp \u0111e d\u1ecda ph\u1ea1t ti\u1ec1n v\u00e0 ch\u00edch \u0111i\u1ec7n. L\u00ednh g\u00e1c c\u01a1 b\u1eafp: \u0110i tu\u1ea7n tra v\u1edbi d\u00f9i cui \u0111i\u1ec7n v\u00e0 \u0111\u00e8n pin r\u1ecdi s\u00e1ng. C\u00e1c n\u1ea1n nh\u00e2n g\u1ecdi \u0111i\u1ec7n: B\u00e1c S\u00e1u mi\u1ec1n T\u00e2y ng\u00e2y th\u01a1, C\u1eadu sinh vi\u00ean ham ki\u1ebfm ti\u1ec1n nhanh, Ch\u1ecb Ba bu\u00f4n b\u00e1n nh\u1ecf.",
+      "summary": "C\u00e1c nh\u00e2n v\u1eadt trong khu ph\u1ee9c h\u1ee3p."
+    },
+    {
+      "title": "Fairness Tools",
+      "content": "Hi\u1ec3n th\u1ecb thanh Nghi Ng\u1edd tr\u1ef1c quan c\u1ee7a kh\u00e1ch h\u00e0ng trong cu\u1ed9c g\u1ecdi; hi\u1ec3n th\u1ecb n\u00f3n t\u1ea7m nh\u00ecn r\u00f5 r\u00e0ng c\u1ee7a l\u00ednh g\u00e1c tr\u00ean m\u1eb7t \u0111\u1ea5t; \u0111\u1ed3ng h\u1ed3 \u0111\u1ebfm ng\u01b0\u1ee3c 90 gi\u00e2y trong m\u00e0n v\u01b0\u1ee3t r\u00e0o; b\u1ea3n \u0111\u1ed3 r\u00e1ch h\u00e9 l\u1ed9 \u0111\u01b0\u1eddng t\u1eaft \u1edf h\u00e0ng r\u00e0o ph\u00eda \u0111\u00f4ng.",
+      "summary": "C\u00f4ng c\u1ee5 h\u1ed7 tr\u1ee3 ng\u01b0\u1eddi ch\u01a1i t\u00ednh to\u00e1n r\u1ee7i ro."
+    },
+    {
+      "title": "Accessibility",
+      "content": "H\u1ed7 tr\u1ee3 ph\u1ee5 \u0111\u1ec1 ti\u1ebfng Vi\u1ec7t r\u00f5 r\u00e0ng v\u1edbi ph\u00f4ng ch\u1eef pixel s\u1eafc n\u00e9t \u0111\u1ed9 t\u01b0\u01a1ng ph\u1ea3n cao; t\u00f9y ch\u1ecdn b\u1eadt t\u1eaft hi\u1ec7u \u1ee9ng rung m\u00e0n h\u00ecnh (screen shake toggle) cho ng\u01b0\u1eddi nh\u1ea1y c\u1ea3m th\u1ecb gi\u00e1c; ph\u00edm t\u1eaft \u0111i\u1ec1u khi\u1ec3n \u0111\u1ea7y \u0111\u1ee7 tr\u00ean b\u00e0n ph\u00edm l\u1eabn n\u00fat b\u1ea5m c\u1ea3m \u1ee9ng linh ho\u1ea1t.",
+      "summary": "Kh\u1ea3 n\u0103ng ti\u1ebfp c\u1eadn v\u00e0 c\u00e0i \u0111\u1eb7t th\u00e2n thi\u1ec7n."
+    },
+    {
+      "title": "Structural Integrity",
+      "content": "M\u00e0n h\u00ecnh B\u1eaft \u0110\u1ea7u (Title Screen v\u1edbi nh\u1ea1c n\u1ec1n u u\u1ea5t) -> L\u1eddi d\u1eabn c\u1ed1t truy\u1ec7n ng\u1eafn -> V\u00f2ng l\u1eb7p Khu\u00f4n Vi\u00ean Khu Compound (Overworld) <-> M\u00e0n H\u00ecnh B\u00e0n L\u00e0m Vi\u1ec7c (Telesales Desk) <-> M\u00e0n H\u00ecnh C\u0103n Tin <-> M\u00e0n H\u00ecnh \u0110\u00e0o Tho\u00e1t M\u00ea Cung (Escape Maze) -> M\u00e0n H\u00ecnh K\u1ebft C\u1ee5c (Ending Screen) -> M\u00e0n H\u00ecnh C\u1ea3nh B\u00e1o C\u1ed9ng \u0110\u1ed3ng Th\u1ef1c T\u1ebf (Awareness Hotline Sheet).",
+      "summary": "Lu\u1ed3ng m\u00e0n h\u00ecnh to\u00e0n di\u1ec7n v\u00e0 l\u01b0u tr\u1eef tr\u1ea1ng th\u00e1i."
+    },
+    {
+      "title": "Virtual Touch Controls Implementation",
+      "content": "Hi\u1ec3n th\u1ecb Virtual D-Pad 4 h\u01b0\u1edbng \u1edf g\u00f3c d\u01b0\u1edbi b\u00ean tr\u00e1i v\u00e0 N\u00fat T\u01b0\u01a1ng T\u00e1c/Ch\u1ecdn (N\u00fat A) \u1edf g\u00f3c d\u01b0\u1edbi b\u00ean ph\u1ea3i m\u00e0n h\u00ecnh khi ph\u00e1t hi\u1ec7n thi\u1ebft b\u1ecb di \u0111\u1ed9ng c\u1ea3m \u1ee9ng. N\u00fat c\u00f3 class touch-none, pointer-events-auto v\u00e0 b\u1eaft s\u1ef1 ki\u1ec7n onPointerDown, onPointerUp, onPointerLeave \u0111\u1ec3 ch\u1ed1ng k\u1eb9t ph\u00edm.",
+      "summary": "B\u1ed9 \u0111i\u1ec1u khi\u1ec3n \u1ea3o c\u1ea3m \u1ee9ng d\u00e0nh cho thi\u1ebft b\u1ecb di \u0111\u1ed9ng."
+    }
+  ]
+}
