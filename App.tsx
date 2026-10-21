@@ -36,10 +36,10 @@ import {
   InventoryItem,
   OverworldInteractable,
   SceneMode,
-  TELESALES_VICTIMS,
-  TelesalesChoice,
-  TelesalesVictim,
 } from './gameTypes';
+import RoommatesScene, {RoommateState, SHARE_FOOD_PRICE} from './RoommatesScene';
+import {DailyEventView, JOB_SCAM_SIGNS, ROOMMATES, RoommateId} from './storyData';
+import TelesalesScene, {CallResult} from './TelesalesScene';
 import JunkStorageScene, {QUEST_ITEM_INFO, QuestItemId} from './JunkStorageScene';
 import {SpriteActionConfig, SpriteAnimationState, SpriteRenderer} from './SpriteRenderer';
 import BackgroundMusic from './utils/BackgroundMusic';
@@ -774,6 +774,126 @@ function drawTacticalHotspot(
   ctx.restore();
 }
 
+// ============================================================================
+// DESIGN CONSTANTS (balance)
+// ============================================================================
+const DAILY_QUOTA = 5; // calls per day
+const MAX_DAYS = 20; // game lasts up to 20 days
+const ESCAPE_FAIL_DEBT = 2000; // +debt per failed escape
+const RESCUE_DELAY_DAYS = 3; // survive N days after messaging family
+const WHISTLEBLOWER_TARGET = 10; // warnings not caught
+const NIGHT_ACTIONS = 3; // roommate actions per night
+const PASS_MONEY = 40;
+const PASS_RANSOM = 600;
+const SAVE_KEY = 'vnlc_save_v1';
+
+type EndingType = 'ESCAPE' | 'RANSOM' | 'OVERSEER' | 'COLLAPSE' | 'RESCUE' | 'WHISTLEBLOWER' | 'SOLD';
+type EscapeItemId = 'wire_cutters' | 'flashlight' | 'torn_map';
+const ESCAPE_ITEM_NAMES: Record<EscapeItemId, string> = {
+  flashlight: 'Đèn Pin',
+  torn_map: 'Bản Đồ Rách',
+  wire_cutters: 'Kìm Cắt Dây Thép',
+};
+
+/** Escape maze fence walls (axis-aligned rects) - matches the drawn fences. */
+const MAZE_WALLS = [
+  {x: 244, y: 64, w: 12, h: 422},
+  {x: 494, y: 234, w: 12, h: 422},
+  {x: 754, y: 64, w: 12, h: 402},
+  {x: 994, y: 194, w: 12, h: 462},
+];
+
+function rectHitsWalls(x: number, y: number, w: number, h: number) {
+  return MAZE_WALLS.some((r) => x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y);
+}
+
+/** Sampled line-of-sight test through maze walls. */
+function hasLineOfSight(x1: number, y1: number, x2: number, y2: number) {
+  const steps = 16;
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    if (rectHitsWalls(x1 + (x2 - x1) * t - 1, y1 + (y2 - y1) * t - 1, 2, 2)) return false;
+  }
+  return true;
+}
+
+function makeRoommates(): Record<RoommateId, RoommateState> {
+  const out = {} as Record<RoommateId, RoommateState>;
+  ROOMMATES.forEach((r) => {
+    out[r.id] = {relationship: r.startRelationship, present: true, lastLine: r.talk[1][0]};
+  });
+  out.tuan.lastLine = 'Tuấn ngồi co ro ở góc giường, mắt đỏ hoe.';
+  out.hoa.lastLine = 'Chị Hoa đang khâu lại chiếc áo rách, gật đầu chào bạn.';
+  out.bao.lastLine = 'Bảo nằm nhìn trần nhà, đẩy gọng kính nứt.';
+  return out;
+}
+
+/** Build escape-maze guards. Harder after each failed attempt. */
+function buildMazeGuards(failures: number, baseSpeed: number, knowsSchedule: boolean): GuardAI[] {
+  const routes = [
+    [{x: 630, y: 130}, {x: 630, y: 600}],
+    [{x: 880, y: 600}, {x: 880, y: 130}],
+    [{x: 375, y: 130}, {x: 375, y: 600}],
+    [{x: 1080, y: 150}, {x: 1210, y: 150}, {x: 1210, y: 580}, {x: 1080, y: 580}],
+  ];
+  const count = Math.min(routes.length, 2 + failures);
+  const speedMul = (0.8 + 0.12 * failures) * (knowsSchedule ? 0.85 : 1);
+  return routes.slice(0, count).map((pts, i) => ({
+    id: `maze_guard_${i}`,
+    x: pts[0].x,
+    y: pts[0].y,
+    patrolPoints: pts,
+    currentPointIndex: 1,
+    angle: Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x),
+    state: 'UNAWARE' as const,
+    suspicionTimer: 0,
+    visionRange: (150 + 12 * failures) * (knowsSchedule ? 0.85 : 1),
+    visionAngle: Math.PI / 3.2,
+    speed: baseSpeed * speedMul,
+  }));
+}
+
+interface SaveData {
+  v: 1;
+  dayNumber: number;
+  isNight: boolean;
+  stamina: number;
+  morale: number;
+  money: number;
+  ransomFund: number;
+  managerTrust: number;
+  conscience: number;
+  callsLeftToday: number;
+  inventory: Record<string, boolean>;
+  junkAttemptsLeft: number;
+  failStreak: number;
+  passesToday: number;
+  mealTickets: number;
+  extraDebt: number;
+  warningsUncaught: number;
+  escapeFailures: number;
+  roommates: Record<RoommateId, RoommateState>;
+  nightActionsLeft: number;
+  hoaSchedule: boolean;
+  phoneFixed: boolean;
+  messageSent: boolean;
+  rescueDay: number | null;
+  outageTonight: boolean;
+  todayQuota?: number;
+  score: number;
+}
+
+function readSave(): SaveData | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    return d && d.v === 1 ? (d as SaveData) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stepperRef = useRef<ReturnType<typeof createFixedStepper>>();
@@ -840,16 +960,41 @@ export default function App() {
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
   const [isMusicMuted, setIsMusicMuted] = useState(false);
   const [isSfxMuted, setIsSfxMuted] = useState(false);
-  const [endingType, setEndingType] = useState<
-    'ESCAPE' | 'RANSOM' | 'OVERSEER' | 'COLLAPSE' | null
-  >(null);
+  const [endingType, setEndingType] = useState<EndingType | null>(null);
 
-  // Telesales Mini-game state
-  const [currentVictimIndex, setCurrentVictimIndex] = useState(0);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [victimSuspicion, setVictimSuspicion] = useState(20);
-  const [telesalesFeedback, setTelesalesFeedback] = useState<string>('');
-  const [telesalesPendingAction, setTelesalesPendingAction] = useState(false);
+  // Telesales progress (call UI lives in TelesalesScene.tsx)
+  const [failStreak, setFailStreak] = useState(0);
+  const [todayQuota, setTodayQuota] = useState(DAILY_QUOTA);
+  const [passesToday, setPassesToday] = useState(0);
+  const [warnedToday, setWarnedToday] = useState(0);
+  const [mealTickets, setMealTickets] = useState(0);
+
+  // Debt / escape / endings progress
+  const [extraDebt, setExtraDebt] = useState(0);
+  const [warningsUncaught, setWarningsUncaught] = useState(0);
+  const [escapeFailures, setEscapeFailures] = useState(0);
+
+  // Roommates & night story
+  const [roommates, setRoommates] = useState<Record<RoommateId, RoommateState>>(makeRoommates);
+  const [nightActionsLeft, setNightActionsLeft] = useState(NIGHT_ACTIONS);
+  const [roommateLog, setRoommateLog] = useState<string[]>([]);
+  const [hoaSchedule, setHoaSchedule] = useState(false);
+  const [phoneFixed, setPhoneFixed] = useState(false);
+  const [messageSent, setMessageSent] = useState(false);
+  const [rescueDay, setRescueDay] = useState<number | null>(null);
+
+  // Random daily events
+  const [dailyEvent, setDailyEvent] = useState<DailyEventView | null>(null);
+  const [outageTonight, setOutageTonight] = useState(false);
+
+  // DOM-level shock FX (works over every scene)
+  const [shockFx, setShockFx] = useState(false);
+  const endingFiredRef = useRef(false);
+  const caughtCooldownRef = useRef(0);
+  const escapeTimeRef = useRef(90);
+  const escapeResolvingRef = useRef(false);
+  const mazeGuardsRef = useRef<GuardAI[]>([]);
+  const [hasSave, setHasSave] = useState(() => readSave() !== null);
 
   // Escape Maze Countdown (90 seconds)
   const [escapeTimer, setEscapeTimer] = useState(90);
@@ -985,6 +1130,15 @@ export default function App() {
       action: 'BED',
     },
     {
+      id: 'roommates',
+      x: 95,
+      y: 500,
+      width: 130,
+      height: 60,
+      label: 'Bạn Cùng Phòng (Ban đêm)',
+      action: 'ROOMMATES',
+    },
+    {
       id: 'locker_dorm',
       x: 90,
       y: 220,
@@ -1056,108 +1210,517 @@ export default function App() {
     setNotification(msg);
   }, []);
 
-  // Trigger electric shock punishment
-  const triggerElectricShock = useCallback(
-    (reason: string) => {
-      gameAudio.playErrorBuzz();
-      gameAudio.playChiptuneExplosion();
-      setScreenShake(18);
-      setIsGlitching(true);
-      setTimeout(() => setIsGlitching(false), 600);
+  // Latest stat values for callbacks that fire after a delay
+  const statsRef = useRef({managerTrust, conscience, ransomFund, extraDebt, failStreak, warnedToday, warningsUncaught});
+  statsRef.current = {managerTrust, conscience, ransomFund, extraDebt, failStreak, warnedToday, warningsUncaught};
 
-      setStamina((prev) => Math.max(0, prev - 25));
-      setMorale((prev) => Math.max(0, prev - 25));
-      setManagerTrust((prev) => Math.max(0, prev - 15));
-      showToast(`HÌNH PHẠT: Bị Quản lý Hùng chích dùi cui điện! (-25 Thể Lực, -25 Tinh Thần) - ${reason}`);
-
-      // Check collapse condition
-      setTimeout(() => {
-        if (stamina <= 25 || morale <= 25) {
-          triggerEnding('COLLAPSE');
-        }
-      }, 500);
-    },
-    [showToast, stamina, morale],
-  );
-
-  // Trigger ending
-  const triggerEnding = useCallback((type: 'ESCAPE' | 'RANSOM' | 'OVERSEER' | 'COLLAPSE') => {
+  // Trigger ending (fires exactly once per run)
+  const triggerEnding = useCallback((type: EndingType) => {
+    if (endingFiredRef.current) return;
+    endingFiredRef.current = true;
     setEndingType(type);
     setSceneMode('ENDING');
+    try {
+      localStorage.removeItem(SAVE_KEY);
+    } catch {}
+    setHasSave(false);
 
-    if (type === 'ESCAPE') {
-      gameAudio.playVictoryFanfare();
-      setGameState((prev) => ({
-        ...prev,
-        status: 'VICTORY',
-        score: prev.score + 5000,
-      }));
-    } else if (type === 'RANSOM') {
-      gameAudio.playVictoryFanfare();
-      setGameState((prev) => ({
-        ...prev,
-        status: 'VICTORY',
-        score: prev.score + 3500,
-      }));
-    } else if (type === 'OVERSEER') {
-      gameAudio.playDefeatMotif();
-      setGameState((prev) => ({
-        ...prev,
-        status: 'GAME_OVER',
-        score: prev.score + 1000,
-      }));
-    } else {
-      gameAudio.playDefeatMotif();
-      setGameState((prev) => ({
-        ...prev,
-        status: 'GAME_OVER',
-        score: prev.score,
-      }));
-    }
+    const good = type === 'ESCAPE' || type === 'RANSOM' || type === 'RESCUE' || type === 'WHISTLEBLOWER';
+    const bonus: Record<EndingType, number> = {
+      ESCAPE: 5000,
+      RANSOM: 3500,
+      RESCUE: 4000,
+      WHISTLEBLOWER: 4500,
+      OVERSEER: 1000,
+      COLLAPSE: 0,
+      SOLD: 0,
+    };
+    if (good) gameAudio.playVictoryFanfare();
+    else gameAudio.playDefeatMotif();
+    setGameState((prev) => ({
+      ...prev,
+      status: good ? 'VICTORY' : 'GAME_OVER',
+      score: prev.score + bonus[type],
+    }));
   }, []);
 
-  // Initialize or restart full game
-  const initGame = useCallback(() => {
-    setGameState({
-      status: 'PLAYING',
-      score: 0,
-      level: 1,
-    });
-    setSceneMode('OVERWORLD');
-    setDayNumber(1);
-    setIsNight(false);
-    setStamina(100);
-    setMorale(100);
-    setMoney(15);
-    setRansomFund(0);
-    setManagerTrust(50);
-    setConscience(60);
-    setCallsLeftToday(4);
-    setInventory({wire_cutters: false, flashlight: false, torn_map: false});
-    setJunkAttemptsLeft(JUNK_ATTEMPTS_PER_NIGHT);
-    setEndingType(null);
-    setIsGameMenuOpen(false);
-    setIsHowToPlayOpen(false);
-    setEscapeTimer(90);
+  // Trigger electric shock punishment (loud zap, violent shake, red flash + glitch)
+  const triggerElectricShock = useCallback(
+    (reason: string, damage = 20) => {
+      gameAudio.playZap();
+      gameAudio.playErrorBuzz();
+      setScreenShake(18);
+      setIsGlitching(true);
+      setShockFx(true);
+      setTimeout(() => setIsGlitching(false), 600);
+      setTimeout(() => setShockFx(false), 900);
 
-    playerRef.current = {
-      id: 'player',
-      type: 'PLAYER',
-      x: 200,
-      y: 350,
-      width: 44,
-      height: 60,
-      vx: 0,
-      vy: 0,
-      facingLeft: false,
-    };
+      setStamina((prev) => Math.max(0, prev - damage));
+      setMorale((prev) => Math.max(0, prev - damage));
+      setManagerTrust((prev) => Math.max(0, prev - 10));
+      showToast(`ZZZT! HÌNH PHẠT CHÍCH ĐIỆN (-${damage} Thể Lực, -${damage} Tinh Thần): ${reason}`);
+    },
+    [showToast],
+  );
 
-    gameAudio.playConfirmSelect();
-    showToast('Ngày 1: Đến bàn làm việc ở Phòng Telesales để đạt KPI tối thiểu!');
-    if (sdk) {
-      sdk.startGame();
+  // Gục Ngã: Thể Lực or Tinh Thần reaches 0 (checked after every change)
+  useEffect(() => {
+    if (gameState.status === 'PLAYING' && (stamina <= 0 || morale <= 0)) {
+      triggerEnding('COLLAPSE');
     }
-  }, [sdk, showToast]);
+  }, [stamina, morale, gameState.status, triggerEnding]);
+
+  // Initialize or restart full game (or continue from a save)
+  const initGame = useCallback(
+    (saveArg?: unknown) => {
+      const save = saveArg && (saveArg as SaveData).v === 1 ? (saveArg as SaveData) : null;
+      endingFiredRef.current = false;
+      escapeResolvingRef.current = false;
+      setGameState({
+        status: 'PLAYING',
+        score: save ? save.score : 0,
+        level: 1,
+      });
+      setSceneMode('OVERWORLD');
+      setDayNumber(save ? save.dayNumber : 1);
+      setIsNight(save ? save.isNight : false);
+      setStamina(save ? save.stamina : (getConfig('startingStamina') as number));
+      setMorale(save ? save.morale : (getConfig('startingMorale') as number));
+      setMoney(save ? save.money : 15);
+      setRansomFund(save ? save.ransomFund : 0);
+      setManagerTrust(save ? save.managerTrust : 50);
+      setConscience(save ? save.conscience : 60);
+      setCallsLeftToday(save ? save.callsLeftToday : DAILY_QUOTA);
+      setTodayQuota(save && save.todayQuota ? save.todayQuota : DAILY_QUOTA);
+      setInventory(save ? save.inventory : {wire_cutters: false, flashlight: false, torn_map: false});
+      setJunkAttemptsLeft(save ? save.junkAttemptsLeft : JUNK_ATTEMPTS_PER_NIGHT);
+      setFailStreak(save ? save.failStreak : 0);
+      setPassesToday(save ? save.passesToday : 0);
+      setWarnedToday(0);
+      setMealTickets(save ? save.mealTickets : 1);
+      setExtraDebt(save ? save.extraDebt : 0);
+      setWarningsUncaught(save ? save.warningsUncaught : 0);
+      setEscapeFailures(save ? save.escapeFailures : 0);
+      setRoommates(save ? save.roommates : makeRoommates());
+      setNightActionsLeft(save ? save.nightActionsLeft : NIGHT_ACTIONS);
+      setRoommateLog([]);
+      setHoaSchedule(save ? save.hoaSchedule : false);
+      setPhoneFixed(save ? save.phoneFixed : false);
+      setMessageSent(save ? save.messageSent : false);
+      setRescueDay(save ? save.rescueDay : null);
+      setOutageTonight(save ? save.outageTonight : false);
+      setDailyEvent(null);
+      setEndingType(null);
+      setIsGameMenuOpen(false);
+      setIsHowToPlayOpen(false);
+      setEscapeTimer(getConfig('escapeTimeLimit') as number);
+
+      playerRef.current = {
+        id: 'player',
+        type: 'PLAYER',
+        x: 200,
+        y: 350,
+        width: 44,
+        height: 60,
+        vx: 0,
+        vy: 0,
+        facingLeft: false,
+      };
+
+      gameAudio.playConfirmSelect();
+      showToast(
+        save
+          ? `Tiếp tục: Ngày ${save.dayNumber}${save.isNight ? ' (ban đêm)' : ''}. Cố lên, đừng bỏ cuộc!`
+          : `Ngày 1: Đến bàn Telesales gọi đủ ${DAILY_QUOTA} cuộc KPI. Chưa xong KPI thì quản lý không cho về phòng ngủ!`,
+      );
+      if (sdk) {
+        sdk.startGame();
+      }
+    },
+    [sdk, showToast],
+  );
+
+  // Autosave (localStorage) whenever the player is back in the overworld
+  useEffect(() => {
+    if (gameState.status !== 'PLAYING' || sceneMode !== 'OVERWORLD' || endingFiredRef.current) return;
+    const data: SaveData = {
+      v: 1,
+      dayNumber,
+      isNight,
+      stamina,
+      morale,
+      money,
+      ransomFund,
+      managerTrust,
+      conscience,
+      callsLeftToday,
+      inventory,
+      junkAttemptsLeft,
+      failStreak,
+      passesToday,
+      mealTickets,
+      extraDebt,
+      warningsUncaught,
+      escapeFailures,
+      roommates,
+      nightActionsLeft,
+      hoaSchedule,
+      phoneFixed,
+      messageSent,
+      rescueDay,
+      outageTonight,
+      todayQuota,
+      score: gameState.score,
+    };
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      setHasSave(true);
+    } catch {}
+  }, [
+    gameState.status, gameState.score, sceneMode, dayNumber, isNight, stamina, morale, money, ransomFund,
+    managerTrust, conscience, callsLeftToday, inventory, junkAttemptsLeft, failStreak, passesToday,
+    mealTickets, extraDebt, warningsUncaught, escapeFailures, roommates, nightActionsLeft, hoaSchedule,
+    phoneFixed, messageSent, rescueDay, outageTonight, todayQuota,
+  ]);
+
+  // ---------------------------------------------------------------------------
+  // Helpers shared by events / punishments
+  // ---------------------------------------------------------------------------
+  const ownedEscapeItems = (): EscapeItemId[] =>
+    (Object.keys(ESCAPE_ITEM_NAMES) as EscapeItemId[]).filter((k) => inventory[k]);
+
+  /** Remove one random carried escape item. Returns its name, or null. */
+  const loseRandomItem = (): string | null => {
+    const owned = ownedEscapeItems();
+    if (owned.length === 0) return null;
+    const id = owned[Math.floor(Math.random() * owned.length)];
+    setInventory((prev) => ({...prev, [id]: false}));
+    return ESCAPE_ITEM_NAMES[id];
+  };
+
+  const ransomTarget = (getConfig('targetRansom') as number) + extraDebt;
+
+  // ---------------------------------------------------------------------------
+  // Morning: new day + random daily event
+  // ---------------------------------------------------------------------------
+  const advanceToMorning = () => {
+    const newDay = dayNumber + 1;
+    if (rescueDay !== null && newDay >= rescueDay) {
+      triggerEnding('RESCUE');
+      return;
+    }
+    if (newDay > MAX_DAYS) {
+      triggerEnding('SOLD');
+      return;
+    }
+    const yesterdayPasses = passesToday;
+    setIsNight(false);
+    setDayNumber(newDay);
+    setStamina((prev) => Math.min(100, prev + 35));
+    setMorale((prev) => Math.min(100, prev + 15));
+    setPassesToday(0);
+    setWarnedToday(0);
+    setNightActionsLeft(NIGHT_ACTIONS);
+    setRoommateLog([]);
+    setOutageTonight(false);
+    setRoommates((prev) => {
+      const next = {...prev};
+      (Object.keys(next) as RoommateId[]).forEach((id) => {
+        if (next[id].present) next[id] = {...next[id], relationship: Math.max(0, next[id].relationship - 2)};
+      });
+      return next;
+    });
+
+    let quota = DAILY_QUOTA;
+    let ev: DailyEventView = {
+      id: 'QUIET',
+      title: 'Một buổi sáng như mọi ngày',
+      text: 'Tiếng loa rè rè gọi mọi người vào ca. Không có gì đặc biệt... ngoài nỗi nhớ nhà.',
+      tone: 'neutral',
+    };
+    const presentIds = (Object.keys(roommates) as RoommateId[]).filter((id) => roommates[id].present);
+    const tuan = roommates.tuan;
+    const r = Math.random();
+
+    if (tuan.present && tuan.relationship < 25 && ownedEscapeItems().length > 0 && Math.random() < 0.5) {
+      const lost = loseRandomItem();
+      setMorale((prev) => Math.max(0, prev - 10));
+      setRoommates((prev) => ({...prev, tuan: {...prev.tuan, lastLine: 'Tuấn không dám nhìn bạn. Trên tay cậu là hộp cơm thịt của quản lý...'}}));
+      ev = {
+        id: 'TUAN_BETRAYAL',
+        title: 'Tuấn phản bội!',
+        text: `Đói quá, Tuấn mách lính gác chỗ bạn giấu đồ để đổi lấy một hộp cơm thịt. Bạn bị tịch thu [${lost}]. (-10 Tinh Thần)\nGợi ý: chia đồ ăn với Tuấn để cậu ấy không phải lựa chọn như vậy.`,
+        tone: 'bad',
+      };
+    } else if (presentIds.length > 1 && dayNumber >= 3 && (yesterdayPasses <= 1 || managerTrust < 30) && Math.random() < 0.35) {
+      const id = presentIds[Math.floor(Math.random() * presentIds.length)];
+      const def = ROOMMATES.find((x) => x.id === id)!;
+      setRoommates((prev) => ({...prev, [id]: {...prev[id], present: false, lastLine: 'Giường trống trơn. Chỉ còn lại đôi dép cũ.'}}));
+      setMorale((prev) => Math.max(0, prev - 15));
+      ev = {
+        id: 'ROOMMATE_SOLD',
+        title: `${def.name} bị "bán" sang trại khác`,
+        text: `Doanh số cả phòng quá thấp. Sáng sớm, ${def.name} bị lôi lên xe tải, "bán" sang một khu khác tệ hơn. Bạn không kịp nói lời tạm biệt. (-15 Tinh Thần)${
+          id === 'bao' && !phoneFixed && !messageSent ? '\nKhông còn ai sửa được điện thoại cũ nữa...' : ''
+        }${id === 'hoa' && !hoaSchedule ? '\nBạn mất đi người duy nhất biết lịch gác.' : ''}`,
+        tone: 'bad',
+      };
+    } else if (r < 0.25) {
+      // Surprise phone inspection
+      if (tuan.present && tuan.relationship >= 60) {
+        ev = {
+          id: 'INSPECTION',
+          title: 'Khám phòng bất ngờ!',
+          text: 'Tuấn ho to ra hiệu từ ngoài hành lang, bạn kịp giấu hết đồ. Lính gác lục tung giường nhưng không tìm thấy gì.',
+          tone: 'good',
+        };
+      } else if (phoneFixed && !messageSent) {
+        setPhoneFixed(false);
+        setMorale((prev) => Math.max(0, prev - 10));
+        ev = {
+          id: 'INSPECTION',
+          title: 'Khám điện thoại bất ngờ!',
+          text: 'Lính gác lục soát phòng và tịch thu chiếc điện thoại cũ Bảo vừa sửa. (-10 Tinh Thần) Phải nhờ Bảo sửa lại.',
+          tone: 'bad',
+        };
+      } else if (ownedEscapeItems().length > 0 && Math.random() < 0.5) {
+        const lost = loseRandomItem();
+        ev = {
+          id: 'INSPECTION',
+          title: 'Khám phòng bất ngờ!',
+          text: `Lính gác lật tung nệm và tịch thu [${lost}].`,
+          tone: 'bad',
+        };
+      } else {
+        const taken = Math.floor(money / 2);
+        setMoney((prev) => prev - taken);
+        ev = {
+          id: 'INSPECTION',
+          title: 'Khám điện thoại & tư trang!',
+          text: `Lính gác kiểm tra điện thoại và túi đồ của từng người, "thu phí giữ hộ" $${taken}.`,
+          tone: 'bad',
+        };
+      }
+    } else if (r < 0.45) {
+      quota = 3;
+      setOutageTonight(true);
+      ev = {
+        id: 'OUTAGE',
+        title: 'Mất điện toàn khu!',
+        text: 'Máy phát điện hỏng. Hôm nay chỉ phải gọi 3 cuộc. Đêm nay đèn pha tắt, tầm nhìn của lính gác giảm hẳn - cơ hội lén lút!',
+        tone: 'good',
+      };
+    } else if (r < 0.65) {
+      setMorale((prev) => Math.max(0, prev - 8));
+      setConscience((prev) => Math.min(100, prev + 5));
+      ev = {
+        id: 'NEW_ARRIVALS',
+        title: 'Người mới đến',
+        text: 'Một xe tải chở thêm 12 người mới, ai cũng cầm tờ quảng cáo "Tuyển CSKH lương 30 triệu, bao vé máy bay". Nhìn họ, bạn thấy chính mình ngày đầu. (-8 Tinh Thần, +5 Lương Tâm)',
+        tone: 'neutral',
+      };
+    }
+    setCallsLeftToday(quota);
+    setTodayQuota(quota);
+    setDailyEvent(ev);
+    showToast(`Trời sáng: Ngày ${newDay}/${MAX_DAYS}. KPI hôm nay: ${quota} cuộc.`);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Telesales call results
+  // ---------------------------------------------------------------------------
+  const handleCallChoice = (trustDelta: number, conscienceDelta: number) => {
+    setManagerTrust((prev) => Math.max(0, Math.min(100, prev + trustDelta)));
+    setConscience((prev) => Math.max(0, Math.min(100, prev + conscienceDelta)));
+  };
+
+  const handleCallEnd = (result: CallResult): string => {
+    const st = statsRef.current;
+    setCallsLeftToday((prev) => {
+      const left = Math.max(0, prev - 1);
+      if (left === 0) showToast('Đã gọi đủ KPI hôm nay! Ghé căn tin rồi về giường ngủ để sang đêm.');
+      return left;
+    });
+    setStamina((prev) => Math.max(0, prev - 8));
+
+    if (result === 'PASS') {
+      setMorale((prev) => Math.max(0, prev - 2));
+      setMoney((prev) => prev + PASS_MONEY);
+      setRansomFund((prev) => prev + PASS_RANSOM);
+      setMealTickets((prev) => prev + 1);
+      setManagerTrust((prev) => Math.min(100, prev + 5));
+      setConscience((prev) => Math.max(0, prev - 3));
+      setPassesToday((prev) => prev + 1);
+      setFailStreak(0);
+      setGameState((prev) => ({...prev, score: prev.score + 500}));
+      const target = (getConfig('targetRansom') as number) + st.extraDebt;
+      if (st.ransomFund + PASS_RANSOM >= target) {
+        setTimeout(() => triggerEnding('RANSOM'), 1500);
+      } else if (st.managerTrust + 5 >= 90 && st.conscience - 3 <= 10) {
+        setTimeout(() => triggerEnding('OVERSEER'), 1500);
+      }
+      return `+$${PASS_MONEY} Tiền · +$${PASS_RANSOM} Quỹ Chuộc Thân · +1 Phiếu Cơm · +5 Lòng Tin · -3 Lương Tâm`;
+    }
+
+    if (result === 'FAIL') {
+      setMorale((prev) => Math.max(0, prev - 8));
+      setManagerTrust((prev) => Math.max(0, prev - 5));
+      const streak = st.failStreak + 1;
+      if (streak >= 3) {
+        setFailStreak(0);
+        setTimeout(() => triggerElectricShock('Trượt 3 cuộc gọi liên tiếp, Quản lý Hùng xách dùi cui điện tới!'), 350);
+        return 'TRƯỢT 3 CUỘC LIÊN TIẾP! Quản lý Hùng xách dùi cui điện tới bàn bạn...';
+      }
+      setFailStreak(streak);
+      return `Trượt liên tiếp: ${streak}/3. Trượt thêm ${3 - streak} cuộc nữa là bị chích điện! (-5 Lòng Tin)`;
+    }
+
+    // WARNED
+    setMorale((prev) => Math.max(0, prev - 4));
+    setWarnedToday((prev) => prev + 1);
+    const caughtChance = Math.min(0.5, Math.max(0.1, 0.45 - st.managerTrust / 200)) + 0.08 * st.warnedToday;
+    if (Math.random() < caughtChance) {
+      setTimeout(() => triggerElectricShock('Quản lý Hùng nghe thấy bạn cảnh báo nạn nhân!', 15), 350);
+      return 'BỊ PHÁT HIỆN! Quản lý Hùng đứng ngay sau lưng bạn từ lúc nào...';
+    }
+    const n = st.warningsUncaught + 1;
+    setWarningsUncaught(n);
+    setGameState((prev) => ({...prev, score: prev.score + 300}));
+    if (n >= WHISTLEBLOWER_TARGET) {
+      setTimeout(() => triggerEnding('WHISTLEBLOWER'), 1500);
+    }
+    return `Không ai phát hiện. Số nạn nhân đã được bạn cảnh báo: ${n}/${WHISTLEBLOWER_TARGET}. (+15 Lương Tâm)`;
+  };
+
+  // ---------------------------------------------------------------------------
+  // Roommates (night)
+  // ---------------------------------------------------------------------------
+  const pushRoommateLog = (msg: string) => setRoommateLog((prev) => [msg, ...prev].slice(0, 4));
+
+  const consumeNightAction = () => {
+    if (nightActionsLeft <= 0) {
+      gameAudio.playErrorBuzz();
+      return false;
+    }
+    setNightActionsLeft((n) => n - 1);
+    return true;
+  };
+
+  const applyRelationship = (id: RoommateId, delta: number) => {
+    const def = ROOMMATES.find((x) => x.id === id)!;
+    const before = roommates[id].relationship;
+    const rel = Math.min(100, before + delta);
+    const bandIdx = rel >= 60 ? 2 : rel >= 30 ? 1 : 0;
+    const lines = def.talk[bandIdx];
+    let line = lines[Math.floor(Math.random() * lines.length)];
+    if (id === 'hoa' && rel >= 60 && !hoaSchedule) {
+      setHoaSchedule(true);
+      line = def.talk[2][0];
+      pushRoommateLog('★ Chị Hoa tiết lộ lịch gác: ban đêm lính gác đi chậm hơn và bạn thấy được lộ trình tuần tra (cả ở màn vượt rào).');
+    }
+    if (id === 'tuan' && before < 60 && rel >= 60) {
+      pushRoommateLog('★ Tuấn hứa sẽ ra hiệu khi lính gác khám phòng.');
+    }
+    if (id === 'bao' && before < 60 && rel >= 60 && !phoneFixed) {
+      pushRoommateLog('★ Bảo tin bạn. Anh ấy có thể sửa chiếc điện thoại cũ.');
+    }
+    setRoommates((prev) => ({...prev, [id]: {...prev[id], relationship: rel, lastLine: line}}));
+  };
+
+  const handleTalk = (id: RoommateId) => {
+    if (!consumeNightAction()) return;
+    applyRelationship(id, 10);
+    setMorale((prev) => Math.min(100, prev + 5));
+    setConscience((prev) => Math.min(100, prev + 2));
+    pushRoommateLog(`Bạn trò chuyện với ${ROOMMATES.find((x) => x.id === id)!.name}. (+10 quan hệ, +5 Tinh Thần)`);
+  };
+
+  const handleShare = (id: RoommateId) => {
+    if (mealTickets <= 0 && money < SHARE_FOOD_PRICE) {
+      gameAudio.playErrorBuzz();
+      showToast('Không có phiếu cơm hay tiền để chia đồ ăn.');
+      return;
+    }
+    if (!consumeNightAction()) return;
+    if (mealTickets > 0) setMealTickets((n) => n - 1);
+    else setMoney((m) => m - SHARE_FOOD_PRICE);
+    gameAudio.playCoinPickup();
+    applyRelationship(id, id === 'tuan' ? 22 : 18);
+    setConscience((prev) => Math.min(100, prev + 5));
+    setStamina((prev) => Math.max(1, prev - 5));
+    pushRoommateLog(
+      `Bạn chia phần ăn cho ${ROOMMATES.find((x) => x.id === id)!.name}. (+quan hệ, +5 Lương Tâm, -5 Thể Lực)`,
+    );
+  };
+
+  const handleFixPhone = () => {
+    if (!consumeNightAction()) return;
+    setPhoneFixed(true);
+    gameAudio.playLevelUpStinger();
+    setRoommates((prev) => ({...prev, bao: {...prev.bao, lastLine: 'Bảo nối mấy sợi dây bằng răng. Màn hình nứt sáng lên: 1 vạch sóng. "Được rồi. Nhắn thật ngắn."'}}));
+    pushRoommateLog('★ Bảo đã sửa xong chiếc điện thoại cũ! Bạn có thể lén nhắn tin cầu cứu gia đình.');
+  };
+
+  const handleSendMessage = () => {
+    if (!consumeNightAction()) return;
+    let risk = hoaSchedule ? 0.15 : 0.35;
+    if (roommates.tuan.present && roommates.tuan.relationship >= 60) risk -= 0.05;
+    if (outageTonight) risk -= 0.1;
+    if (Math.random() < risk) {
+      setPhoneFixed(false);
+      pushRoommateLog('✗ Đèn pin lính gác rọi thẳng vào mặt bạn! Điện thoại bị tịch thu.');
+      triggerElectricShock('Bị bắt quả tang dùng điện thoại lén!');
+      return;
+    }
+    const day = dayNumber + RESCUE_DELAY_DAYS;
+    setMessageSent(true);
+    setRescueDay(day);
+    gameAudio.playVictoryFanfare();
+    pushRoommateLog(`★ Tin nhắn đã gửi đi! Gia đình đã báo công an & Đại sứ quán. Hãy sống sót tới sáng ngày ${day}.`);
+    showToast(`Đã gửi tin cầu cứu! Cố gắng sống sót đến sáng ngày ${day}.`);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Escape maze start / failure
+  // ---------------------------------------------------------------------------
+  const startEscape = () => {
+    const limit = getConfig('escapeTimeLimit') as number;
+    mazeGuardsRef.current = buildMazeGuards(escapeFailures, getConfig('guardSpeed') as number, hoaSchedule);
+    mazeGuardsRef.current.forEach((g) => {
+      guardAnimRefs.current[g.id] = {currentAction: 'WALK', currentFrame: 0, timer: 0};
+    });
+    escapeTimeRef.current = limit;
+    escapeResolvingRef.current = false;
+    setEscapeTimer(limit);
+    setSceneMode('ESCAPE_MAZE');
+    playerRef.current.x = 80;
+    playerRef.current.y = 360;
+    showToast(
+      `CẮT RÀO THÀNH CÔNG! Chạy tới ĐIỂM THOÁT trong ${limit} giây. Tránh nón đèn của ${mazeGuardsRef.current.length} lính gác${
+        escapeFailures > 0 ? ` (canh gác tăng cường sau ${escapeFailures} lần thất bại)` : ''
+      }!`,
+    );
+    gameAudio.playLevelUpStinger();
+  };
+
+  const handleEscapeFail = (why: string) => {
+    if (escapeResolvingRef.current || endingFiredRef.current) return;
+    escapeResolvingRef.current = true;
+    setExtraDebt((d) => d + ESCAPE_FAIL_DEBT);
+    setEscapeFailures((n) => n + 1);
+    setInventory((prev) => ({...prev, wire_cutters: false}));
+    setSceneMode('OVERWORLD');
+    playerRef.current.x = 200;
+    playerRef.current.y = 350;
+    triggerElectricShock(
+      `${why} Bị đánh, chích điện, lôi về ký túc xá. Kìm bị tịch thu, nợ +$${ESCAPE_FAIL_DEBT}, canh gác tăng cường!`,
+    );
+  };
+
+  const morningRef = useRef(advanceToMorning);
+  morningRef.current = advanceToMorning;
+  const startEscapeRef = useRef(startEscape);
+  startEscapeRef.current = startEscape;
 
   // Autoplay handler for preview testing
   const hasAutoplayed = useRef(false);
@@ -1190,34 +1753,43 @@ export default function App() {
       gameAudio.playCrispClick();
 
       if (nearby.action === 'DESK') {
+        if (isNight) {
+          showToast('Ca làm việc đã kết thúc. Phòng Telesales khóa cửa ban đêm.');
+          return;
+        }
         if (callsLeftToday <= 0) {
-          showToast('Hôm nay bạn đã hoàn thành đủ chỉ tiêu gọi điện! Hãy ghé căn tin hoặc nghỉ ngơi.');
+          showToast('Hôm nay bạn đã hoàn thành đủ chỉ tiêu gọi điện! Hãy ghé căn tin hoặc về giường ngủ.');
           return;
         }
         setSceneMode('TELESALES');
-        const victimIdx = Math.floor(Math.random() * TELESALES_VICTIMS.length);
-        setCurrentVictimIndex(victimIdx);
-        setCurrentStepIndex(0);
-        setVictimSuspicion(TELESALES_VICTIMS[victimIdx].initialSuspicion);
-        setTelesalesFeedback('');
-        setTelesalesPendingAction(false);
+      } else if (nearby.action === 'ROOMMATES') {
+        if (!isNight) {
+          showToast('Ban ngày cả phòng đều bị lùa lên ca. Tối về hãy nói chuyện với bạn cùng phòng.');
+          return;
+        }
+        setSceneMode('ROOMMATES');
       } else if (nearby.action === 'CANTEEN') {
         setSceneMode('CANTEEN');
       } else if (nearby.action === 'BED') {
         // Toggle Day / Night or Sleep
         if (!isNight) {
+          if (callsLeftToday > 0) {
+            gameAudio.playErrorBuzz();
+            showToast(`Quản lý Hùng chặn cửa: "Chưa đủ KPI mà đòi ngủ à?" Còn ${callsLeftToday} cuộc gọi phải làm.`);
+            return;
+          }
           setIsNight(true);
           setJunkAttemptsLeft(JUNK_ATTEMPTS_PER_NIGHT);
+          setNightActionsLeft(NIGHT_ACTIONS);
           setStamina((prev) => Math.min(100, prev + 15));
-          showToast('Đêm buông xuống. Bảo vệ bắt đầu bật đèn pin tuần tra. Hãy cẩn thận khi lén lút tìm đồ!');
+          showToast(
+            outageTonight
+              ? 'Đêm mất điện! Đèn pha tắt, lính gác nhìn kém hẳn. Tranh thủ nói chuyện với bạn cùng phòng hoặc lén tìm đồ!'
+              : 'Đêm buông xuống. Lính gác bật đèn pin tuần tra. Nói chuyện với bạn cùng phòng hoặc lén tìm đồ thoát thân!',
+          );
         } else {
-          // Advance to next day
-          setIsNight(false);
-          setDayNumber((d) => d + 1);
-          setCallsLeftToday(4);
-          setStamina((prev) => Math.min(100, prev + 35));
-          setMorale((prev) => Math.min(100, prev + 15));
-          showToast(`Trời sáng: Ngày ${dayNumber + 1}. Bắt đầu ca làm việc mới tại bàn telesales!`);
+          // Advance to next day (random morning event)
+          morningRef.current();
         }
         gameAudio.playConfirmSelect();
       } else if (nearby.action === 'LOCKER') {
@@ -1253,14 +1825,11 @@ export default function App() {
             .filter(Boolean)
             .join(' và ');
           showToast(`Hàng rào dây thép gai kiên cố! Bạn cần ${missing} (tìm trong Kho Phế Liệu ban đêm) mới có thể phá rào.`);
+        } else if (!isNight) {
+          showToast('Ban ngày lính gác đứng kín hàng rào. Chỉ có thể vượt rào vào BAN ĐÊM!');
         } else {
           // Trigger fence escape maze!
-          setSceneMode('ESCAPE_MAZE');
-          setEscapeTimer(getConfig('escapeTimeLimit') as number);
-          playerRef.current.x = 80;
-          playerRef.current.y = 360;
-          showToast('CẮT RÀO THÀNH CÔNG! Chạy trốn qua bãi tuần tra trong 90 giây trước khi còi báo động réo!');
-          gameAudio.playLevelUpStinger();
+          startEscapeRef.current();
         }
       }
     }
@@ -1273,98 +1842,22 @@ export default function App() {
     dayNumber,
     inventory,
     junkAttemptsLeft,
+    outageTonight,
   ]);
 
-  // Handle Telesales Dialogue Choice selection
-  const handleTelesalesChoice = (choice: TelesalesChoice) => {
-    if (telesalesPendingAction) return;
-
-    gameAudio.playCrispClick();
-    const newSuspicion = Math.max(0, Math.min(100, victimSuspicion + choice.suspicionDelta));
-    setVictimSuspicion(newSuspicion);
-
-    setConscience((prev) => Math.max(0, Math.min(100, prev + choice.conscienceDelta)));
-    setManagerTrust((prev) => Math.max(0, Math.min(100, prev + choice.trustDelta)));
-
-    const currentVictim = TELESALES_VICTIMS[currentVictimIndex];
-
-    if (choice.isWarning) {
-      // Player warned the victim
-      setTelesalesFeedback('Bạn đã dũng cảm cảnh báo nạn nhân! Họ cảm ơn bạn và cúp máy ngay lập tức.');
-      setTelesalesPendingAction(true);
-      setTimeout(() => {
-        // Manager suspicion penalty check
-        const caughtProb = managerTrust < 40 ? 0.8 : 0.4;
-        if (Math.random() < caughtProb) {
-          triggerElectricShock('Quản lý Hùng phát hiện bạn hạ giọng cảnh báo nạn nhân!');
-        } else {
-          showToast('May mắn: Quản lý đang bận hút thuốc nên không nghe thấy bạn cảnh báo.');
-        }
-
-        finishCall(false);
-      }, 1500);
+  // Redeem a phiếu cơm (earned from successful calls) for a free plate of cơm thịt
+  const handleUseMealTicket = () => {
+    if (mealTickets <= 0) {
+      gameAudio.playErrorBuzz();
+      showToast('Bạn không có phiếu cơm. Gọi điện đạt KPI để được thưởng phiếu.');
       return;
     }
-
-    if (newSuspicion >= 95) {
-      // Victim hung up
-      setTelesalesFeedback('TÚT... TÚT... Nạn nhân sinh nghi và cúp máy! Cuộc gọi thất bại.');
-      setTelesalesPendingAction(true);
-      setTimeout(() => {
-        setManagerTrust((prev) => Math.max(0, prev - 10));
-        finishCall(false);
-      }, 1500);
-      return;
-    }
-
-    // Advance to next dialogue or win call
-    if (currentStepIndex < currentVictim.dialogues.length - 1) {
-      setCurrentStepIndex((prev) => prev + 1);
-    } else {
-      // Scam succeeded!
-      setTelesalesFeedback('THÀNH CÔNG! Nạn nhân đã chuyển tiền cọc! Quản lý Hùng gật đầu tán thưởng.');
-      setTelesalesPendingAction(true);
-      gameAudio.playCoinPickup();
-      setTimeout(() => {
-        const commission = 350;
-        const ransomGain = 1200;
-        setMoney((prev) => prev + commission);
-        setRansomFund((prev) => prev + ransomGain);
-        setGameState((prev) => ({...prev, score: prev.score + 500}));
-        showToast(`Đạt thưởng: +$${commission} Tiền tiêu & +$${ransomGain} vào Quỹ Chuộc Thân!`);
-
-        // Check ransom winning condition
-        if (ransomFund + ransomGain >= (getConfig('targetRansom') as number)) {
-          triggerEnding('RANSOM');
-          return;
-        }
-
-        // Check if player turned evil
-        if (managerTrust >= 90 && conscience <= 10) {
-          triggerEnding('OVERSEER');
-          return;
-        }
-
-        finishCall(true);
-      }, 1600);
-    }
-  };
-
-  const finishCall = (success: boolean) => {
-    setCallsLeftToday((prev) => {
-      const updated = Math.max(0, prev - 1);
-      if (updated === 0) {
-        showToast('Đã xong 4 cuộc gọi KPI hôm nay! Bạn có thể đi ăn hoặc nghỉ ngơi.');
-      }
-      return updated;
-    });
-
-    setStamina((prev) => Math.max(0, prev - 10));
-    setMorale((prev) => Math.max(0, prev - (success ? 2 : 12)));
-
-    setSceneMode('OVERWORLD');
-    setTelesalesPendingAction(false);
-    setTelesalesFeedback('');
+    const food = FOOD_MENU[0];
+    gameAudio.playCoinPickup();
+    setMealTickets((n) => n - 1);
+    setStamina((prev) => Math.min(100, prev + food.staminaRestore));
+    setMorale((prev) => Math.min(100, prev + food.moraleRestore));
+    showToast(`Đổi 1 phiếu cơm lấy ${food.name}: +${food.staminaRestore} Thể Lực, +${food.moraleRestore} Tinh Thần.`);
   };
 
   // Buy food at Canteen
@@ -1387,9 +1880,10 @@ export default function App() {
 
   // --- Main Simulation Update Loop (Physics & AI) ---
   const update = (dt: number) => {
-    if (gameState.status !== 'PLAYING' || isGameMenuOpen) return;
+    if (gameState.status !== 'PLAYING' || isGameMenuOpen || isHowToPlayOpen || dailyEvent) return;
 
     gameTimeRef.current += dt;
+    if (caughtCooldownRef.current > 0) caughtCooldownRef.current -= dt;
 
     // Shake recovery
     if (screenShake > 0) {
@@ -1464,30 +1958,41 @@ export default function App() {
         const dy = target.y - guard.y;
         const dist = Math.hypot(dx, dy);
 
+        // Chị Hoa's guard schedule: night guards walk slower
+        const guardSpeedNow = guard.speed * (isNight && hoaSchedule ? 0.75 : 1);
         if (dist < 8) {
           guard.currentPointIndex =
             (guard.currentPointIndex + 1) % guard.patrolPoints.length;
         } else {
           guard.angle = Math.atan2(dy, dx);
-          guard.x += Math.cos(guard.angle) * guard.speed * dt;
-          guard.y += Math.sin(guard.angle) * guard.speed * dt;
+          guard.x += Math.cos(guard.angle) * guardSpeedNow * dt;
+          guard.y += Math.sin(guard.angle) * guardSpeedNow * dt;
         }
+        if (guard.state === 'ALERT' && caughtCooldownRef.current <= 0) guard.state = 'UNAWARE';
 
-        // Night Vision Detection
-        if (isNight) {
-          const toPlayerX = (p.x + p.width / 2) - guard.x;
-          const toPlayerY = (p.y + p.height / 2) - guard.y;
+        // Night Vision Detection (the dorm building itself is a safe zone)
+        const pcx = p.x + p.width / 2;
+        const pcy = p.y + p.height / 2;
+        const inDorm = pcx < 295 && pcy > 165 && pcy < 615;
+        if (isNight && !inDorm && caughtCooldownRef.current <= 0) {
+          const toPlayerX = pcx - guard.x;
+          const toPlayerY = pcy - guard.y;
           const pDist = Math.hypot(toPlayerX, toPlayerY);
+          const range = guard.visionRange * (outageTonight ? 0.6 : 1);
 
-          if (pDist < guard.visionRange) {
+          if (pDist < range) {
             let angleDiff = Math.atan2(toPlayerY, toPlayerX) - guard.angle;
             while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
             while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
             if (Math.abs(angleDiff) < guard.visionAngle / 2) {
-              // Caught in cone!
+              // Caught in cone: beaten + zapped, one carried item lost, back to dorm
               guard.state = 'ALERT';
-              triggerElectricShock('Bị lính gác phát hiện khi lén lút ngoài sân ban đêm!');
+              caughtCooldownRef.current = 2.5;
+              const lost = loseRandomItem();
+              triggerElectricShock(
+                `Bị lính gác bắt khi lén lút ban đêm! Bị đánh và lôi về ký túc xá.${lost ? ` Bị tịch thu [${lost}].` : ''}`,
+              );
               p.x = 200;
               p.y = 350;
             }
@@ -1502,25 +2007,29 @@ export default function App() {
       });
     }
 
-    // 2. UPDATE ESCAPE MAZE (90 SECONDS INTENSE RUSH)
+    // 2. UPDATE ESCAPE MAZE (timer, wall collisions, guards with vision cones)
     if (sceneMode === 'ESCAPE_MAZE') {
-      setEscapeTimer((t) => {
-        const nextTime = Math.max(0, t - dt);
-        if (nextTime <= 0) {
-          triggerEnding('COLLAPSE');
-        }
-        return nextTime;
-      });
+      if (escapeResolvingRef.current) return;
+      escapeTimeRef.current = Math.max(0, escapeTimeRef.current - dt);
+      setEscapeTimer(escapeTimeRef.current);
+      if (escapeTimeRef.current <= 0) {
+        handleEscapeFail('Hết giờ! Còi báo động réo vang khắp trại.');
+        return;
+      }
 
       const p = playerRef.current;
       const speed = (getConfig('playerSpeed') as number) * 1.15;
+      // collision box = feet area
+      const box = (x: number, y: number) => rectHitsWalls(x + 8, y + 30, 28, 28);
 
       if (moveX !== 0 || moveY !== 0) {
         const length = Math.hypot(moveX, moveY);
         p.vx = (moveX / length) * speed;
         p.vy = (moveY / length) * speed;
-        p.x = Math.max(20, Math.min(canvasWidth - 60, p.x + p.vx * dt));
-        p.y = Math.max(80, Math.min(canvasHeight - 80, p.y + p.vy * dt));
+        const nx = Math.max(36, Math.min(canvasWidth - 60, p.x + p.vx * dt));
+        if (!box(nx, p.y)) p.x = nx;
+        const ny = Math.max(76, Math.min(canvasHeight - 132, p.y + p.vy * dt));
+        if (!box(p.x, ny)) p.y = ny;
 
         if (moveX !== 0) p.facingLeft = moveX < 0;
 
@@ -1550,33 +2059,79 @@ export default function App() {
         );
       }
 
-      // Check if player reached outer escape extraction zone (Right boundary)
-      if (p.x >= canvasWidth - 110 && p.y >= 260 && p.y <= 460) {
+      // Reached the extraction zone
+      if (p.x >= canvasWidth - 120 && p.y + p.height / 2 >= 260 && p.y + p.height / 2 <= 460) {
+        escapeResolvingRef.current = true;
         triggerEnding('ESCAPE');
         return;
       }
 
-      // Guard AI actively hunting in maze
-      guardsRef.current.forEach((guard) => {
-        const toPlayerX = (p.x + p.width / 2) - guard.x;
-        const toPlayerY = (p.y + p.height / 2) - guard.y;
-        const pDist = Math.hypot(toPlayerX, toPlayerY);
+      const pcx = p.x + p.width / 2;
+      const pcy = p.y + p.height / 2;
+      const moveGuard = (g: GuardAI, tx: number, ty: number, spd: number) => {
+        const a = Math.atan2(ty - g.y, tx - g.x);
+        g.angle = a;
+        const nx = g.x + Math.cos(a) * spd * dt;
+        const ny = g.y + Math.sin(a) * spd * dt;
+        if (!rectHitsWalls(nx - 10, g.y - 10, 20, 20)) g.x = nx;
+        if (!rectHitsWalls(g.x - 10, ny - 10, 20, 20)) g.y = ny;
+      };
 
-        if (pDist < 260) {
-          // Rush player
-          guard.angle = Math.atan2(toPlayerY, toPlayerX);
-          guard.x += Math.cos(guard.angle) * (guard.speed * 1.25) * dt;
-          guard.y += Math.sin(guard.angle) * (guard.speed * 1.25) * dt;
+      for (const guard of mazeGuardsRef.current) {
+        const toX = pcx - guard.x;
+        const toY = pcy - guard.y;
+        const dist = Math.hypot(toX, toY);
+        let angleDiff = Math.atan2(toY, toX) - guard.angle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        const sees =
+          dist < guard.visionRange &&
+          Math.abs(angleDiff) < guard.visionAngle / 2 &&
+          hasLineOfSight(guard.x, guard.y, pcx, pcy);
 
-          if (pDist < 45) {
-            // Tased in maze!
-            triggerElectricShock('Lính gác bắt được bạn tại hàng rào!');
-            p.x = 80;
-            p.y = 360;
+        if (sees) {
+          if (guard.state !== 'ALERT') gameAudio.playErrorBuzz();
+          guard.state = 'ALERT';
+          guard.suspicionTimer = 2.2; // keeps chasing this long after losing sight
+        } else if (guard.state === 'ALERT') {
+          guard.suspicionTimer -= dt;
+          if (guard.suspicionTimer <= 0) guard.state = 'UNAWARE';
+        }
+
+        if (guard.state === 'ALERT') {
+          moveGuard(guard, pcx, pcy, guard.speed * 1.35);
+          if (dist < 42) {
+            handleEscapeFail('Lính gác tóm được bạn giữa bãi tuần tra!');
+            return;
+          }
+        } else {
+          const target = guard.patrolPoints[guard.currentPointIndex];
+          if (Math.hypot(target.x - guard.x, target.y - guard.y) < 8) {
+            guard.currentPointIndex = (guard.currentPointIndex + 1) % guard.patrolPoints.length;
+          } else {
+            moveGuard(guard, target.x, target.y, guard.speed);
           }
         }
-      });
+
+        if (guardSpriteRendererRef.current && guardAnimRefs.current[guard.id]) {
+          guardAnimRefs.current[guard.id] = guardSpriteRendererRef.current.getNextState(
+            guardAnimRefs.current[guard.id],
+            dt,
+          );
+        }
+      }
     }
+  };
+
+  // Offscreen canvas for night / maze darkness masks
+  const darkLayerRef = useRef<HTMLCanvasElement | null>(null);
+  const getDarkLayer = () => {
+    if (!darkLayerRef.current) {
+      darkLayerRef.current = document.createElement('canvas');
+      darkLayerRef.current.width = canvasWidth;
+      darkLayerRef.current.height = canvasHeight;
+    }
+    return darkLayerRef.current;
   };
 
   // --- Main Canvas Drawing Loop ---
@@ -1744,6 +2299,74 @@ export default function App() {
         450,
       );
 
+      // 1D-2. Wall calendar in the dorm (days crossed off)
+      ctx.save();
+      const calX = 232;
+      const calY = 176;
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(calX + 3, calY + 3, 54, 50);
+      ctx.fillStyle = '#cfc8ad';
+      ctx.fillRect(calX, calY, 54, 50);
+      ctx.fillStyle = '#7f1d1d';
+      ctx.fillRect(calX, calY, 54, 9);
+      ctx.fillStyle = '#f5f5f4';
+      ctx.font = 'bold 7px Courier New, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`NGÀY ${dayNumber}/${MAX_DAYS}`, calX + 27, calY + 7);
+      for (let d = 1; d <= MAX_DAYS; d++) {
+        const cx = calX + 3 + ((d - 1) % 5) * 10;
+        const cy = calY + 12 + Math.floor((d - 1) / 5) * 9;
+        ctx.fillStyle = d === dayNumber ? '#b45309' : '#e7e1c9';
+        ctx.fillRect(cx, cy, 8, 7);
+        if (d < dayNumber) {
+          ctx.strokeStyle = '#991b1b';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + 8, cy + 7);
+          ctx.moveTo(cx + 8, cy);
+          ctx.lineTo(cx, cy + 7);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      // 1D-3. Roommates sitting on the dorm floor (only those still here)
+      ctx.save();
+      (['tuan', 'hoa', 'bao'] as RoommateId[]).forEach((id, i) => {
+        const st = roommates[id];
+        const rx = 112 + i * 42;
+        const ry = 512;
+        if (!st.present) {
+          ctx.fillStyle = 'rgba(100, 116, 139, 0.35)';
+          ctx.fillRect(rx - 2, ry + 26, 22, 4);
+          return;
+        }
+        const skin = ['#c9a27e', '#b98d68', '#c4a07c'][i];
+        const shirt = ['#56604f', '#6b4f3a', '#3d4a52'][i];
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(rx - 4, ry + 28, 28, 5);
+        ctx.fillStyle = shirt;
+        ctx.fillRect(rx, ry + 12, 20, 18);
+        ctx.fillStyle = skin;
+        ctx.fillRect(rx + 4, ry, 12, 12);
+        ctx.fillStyle = '#1b1b1b';
+        ctx.fillRect(rx + 4, ry - 2, 12, 4);
+        if (id === 'hoa') ctx.fillRect(rx + 7, ry - 5, 6, 3);
+        if (id === 'bao') {
+          ctx.fillStyle = '#9ca3af';
+          ctx.fillRect(rx + 5, ry + 5, 4, 1);
+          ctx.fillRect(rx + 11, ry + 5, 4, 1);
+        }
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(rx + 6, ry + 5, 2, 2);
+        ctx.fillRect(rx + 12, ry + 5, 2, 2);
+        // relationship heart
+        ctx.fillStyle = st.relationship >= 60 ? '#f472b6' : st.relationship >= 30 ? '#fbbf24' : '#64748b';
+        ctx.fillRect(rx + 8, ry - 12, 4, 4);
+      });
+      ctx.restore();
+
       // 1E. Perimeter Security Fences
       // Outer perimeter borders with razor wire
       drawRealisticChainFence(ctx, 35, 95, canvasWidth - 35, 95, 38);
@@ -1834,13 +2457,14 @@ export default function App() {
         // Dynamic Vision Cone with gradient & particle shimmer
         ctx.save();
         const isAlert = guard.state === 'ALERT';
+        const coneRange = guard.visionRange * (isNight && outageTonight ? 0.6 : 1);
         const vGrad = ctx.createRadialGradient(
           guard.x,
           guard.y,
           5,
           guard.x,
           guard.y,
-          guard.visionRange,
+          coneRange,
         );
         if (isAlert) {
           vGrad.addColorStop(0, 'rgba(239, 68, 68, 0.55)');
@@ -1861,7 +2485,7 @@ export default function App() {
         ctx.arc(
           guard.x,
           guard.y,
-          guard.visionRange,
+          coneRange,
           guard.angle - guard.visionAngle / 2,
           guard.angle + guard.visionAngle / 2,
         );
@@ -1905,6 +2529,13 @@ export default function App() {
 
       // 1K. Night Stealth Volumetric Darkness Mask
       if (isNight) {
+        // Darkness is painted on an offscreen layer so the light cut-outs reveal
+        // the scene (cutting holes directly in the main canvas erased the scene).
+        const mainCtx = ctx;
+        const darkLayer = getDarkLayer();
+        {
+        const ctx = darkLayer.getContext('2d')!;
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.save();
         const lightRadius = inventory.flashlight ? 250 : 135;
         const px = p.x + p.width / 2;
@@ -1950,6 +2581,45 @@ export default function App() {
           ctx.fill();
         });
 
+        ctx.restore();
+        }
+        mainCtx.drawImage(darkLayer, 0, 0);
+
+        // Guard flashlight cones stay visible through the darkness
+        ctx.save();
+        guardsRef.current.forEach((guard) => {
+          const coneRange = guard.visionRange * (outageTonight ? 0.6 : 1);
+          ctx.beginPath();
+          ctx.moveTo(guard.x, guard.y);
+          ctx.arc(guard.x, guard.y, coneRange, guard.angle - guard.visionAngle / 2, guard.angle + guard.visionAngle / 2);
+          ctx.closePath();
+          ctx.fillStyle = guard.state === 'ALERT' ? 'rgba(239, 68, 68, 0.22)' : 'rgba(250, 204, 21, 0.12)';
+          ctx.fill();
+          ctx.strokeStyle = guard.state === 'ALERT' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(250, 204, 21, 0.45)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.9)';
+          ctx.beginPath();
+          ctx.arc(guard.x, guard.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        // Chị Hoa's schedule: show patrol routes
+        if (hoaSchedule) {
+          ctx.setLineDash([3, 6]);
+          ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+          ctx.lineWidth = 1.5;
+          guardsRef.current.forEach((guard) => {
+            ctx.beginPath();
+            guard.patrolPoints.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+            if (guard.patrolPoints.length > 2) ctx.closePath();
+            ctx.stroke();
+          });
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
+          ctx.font = 'bold 11px Courier New, monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText('Lịch gác (Chị Hoa): lính đi chậm, đường tuần tra hiện nét đứt', 310, 118);
+        }
         ctx.restore();
       }
     }
@@ -2039,22 +2709,8 @@ export default function App() {
       ctx.fillText('>> BIÊN PHÒNG >>', canvasWidth - 70, 370);
       ctx.restore();
 
-      // Guards actively hunting in maze
-      guardsRef.current.forEach((guard) => {
-        // Red alert spotlight
-        ctx.save();
-        const huntGrad = ctx.createRadialGradient(guard.x, guard.y, 10, guard.x, guard.y, 130);
-        huntGrad.addColorStop(0, 'rgba(239, 68, 68, 0.55)');
-        huntGrad.addColorStop(0.6, 'rgba(239, 68, 68, 0.22)');
-        huntGrad.addColorStop(1, 'rgba(239, 68, 68, 0.0)');
-        ctx.fillStyle = huntGrad;
-        ctx.beginPath();
-        ctx.arc(guard.x, guard.y, 130, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
+      // Guards patrolling the maze (drawn under the darkness; cones redrawn on top below)
+      mazeGuardsRef.current.forEach((guard) => {
 
         if (guardSpriteRendererRef.current && assetsReady) {
           const animState = guardAnimRefs.current[guard.id] || {
@@ -2089,7 +2745,12 @@ export default function App() {
         );
       }
 
-      // Volumetric Darkness Mask with player flashlight
+      // Volumetric Darkness Mask with player flashlight (offscreen layer, see overworld)
+      const mainCtx = ctx;
+      const darkLayer = getDarkLayer();
+      {
+      const ctx = darkLayer.getContext('2d')!;
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.save();
       const lightRadius = inventory.flashlight ? 290 : 160;
       const px = p.x + p.width / 2;
@@ -2117,6 +2778,58 @@ export default function App() {
       ctx.arc(canvasWidth - 70, 360, 160, 0, Math.PI * 2);
       ctx.fill();
 
+      ctx.restore();
+      }
+      mainCtx.drawImage(darkLayer, 0, 0);
+
+      // Bản Đồ Rách: faint outline of the fence layout over the darkness
+      if (inventory.torn_map) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(167, 243, 208, 0.22)';
+        ctx.setLineDash([6, 5]);
+        ctx.lineWidth = 2;
+        MAZE_WALLS.forEach((w) => ctx.strokeRect(w.x, w.y, w.w, w.h));
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      // Guard flashlight vision cones on top of the darkness
+      ctx.save();
+      mazeGuardsRef.current.forEach((guard) => {
+        const alert = guard.state === 'ALERT';
+        const cg = ctx.createRadialGradient(guard.x, guard.y, 5, guard.x, guard.y, guard.visionRange);
+        cg.addColorStop(0, alert ? 'rgba(239, 68, 68, 0.55)' : 'rgba(250, 204, 21, 0.5)');
+        cg.addColorStop(1, alert ? 'rgba(239, 68, 68, 0.06)' : 'rgba(250, 204, 21, 0.04)');
+        ctx.beginPath();
+        ctx.moveTo(guard.x, guard.y);
+        ctx.arc(guard.x, guard.y, guard.visionRange, guard.angle - guard.visionAngle / 2, guard.angle + guard.visionAngle / 2);
+        ctx.closePath();
+        ctx.fillStyle = cg;
+        ctx.fill();
+        ctx.strokeStyle = alert ? '#ef4444' : 'rgba(250, 204, 21, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = alert ? '#ef4444' : '#facc15';
+        ctx.beginPath();
+        ctx.arc(guard.x, guard.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        if (alert) {
+          ctx.font = 'bold 20px Courier New, monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('!', guard.x, guard.y - 44);
+        }
+      });
+      if (hoaSchedule) {
+        ctx.setLineDash([3, 6]);
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+        mazeGuardsRef.current.forEach((guard) => {
+          ctx.beginPath();
+          guard.patrolPoints.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+          if (guard.patrolPoints.length > 2) ctx.closePath();
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+      }
       ctx.restore();
     }
 
@@ -2182,11 +2895,17 @@ export default function App() {
     sceneMode !== 'ENDING' &&
     sceneMode !== 'AWARENESS';
 
-  const currentVictim = TELESALES_VICTIMS[currentVictimIndex];
-  const currentDialogue = currentVictim?.dialogues[currentStepIndex];
-
   return (
-    <div className="fixed inset-0 overflow-hidden touch-none flex flex-col bg-slate-950 text-white font-mono select-none">
+    <div
+      className={`fixed inset-0 overflow-hidden touch-none flex flex-col bg-slate-950 text-white font-mono select-none ${
+        shockFx ? 'vnlc-shock-shake' : ''
+      }`}>
+      {/* Electric-shock FX overlay (red flash + glitch scanlines), above every scene */}
+      {shockFx && (
+        <div className="vnlc-shock-overlay pointer-events-none fixed inset-0 z-[80] flex items-center justify-center" data-testid="shock-fx">
+          <div className="vnlc-zap-text text-5xl md:text-7xl font-black text-yellow-200 tracking-widest">ZZZT!</div>
+        </div>
+      )}
       {/* Preloading Screen */}
       {!assetsReady && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-emerald-400">
@@ -2219,7 +2938,9 @@ export default function App() {
               </span>
             )}
           </span>
-          <span className="text-slate-400">Ngày {dayNumber}</span>
+          <span className="text-slate-400">
+            Ngày {dayNumber}/{MAX_DAYS}
+          </span>
           <span className="text-slate-400">|</span>
           <span className="text-slate-300">
             KPI Còn:{' '}
@@ -2253,21 +2974,55 @@ export default function App() {
             <span className="text-[11px] text-cyan-200">{morale}</span>
           </div>
 
-          {/* Money & Ransom */}
-          <div className="flex items-center gap-1 text-emerald-400 font-bold">
+          {/* Money & meal tickets */}
+          <div className="flex items-center gap-1 text-emerald-400 font-bold" title="Tiền">
             <DollarSign size={13} />
             <span>${money}</span>
           </div>
+          <div className="flex items-center gap-1 text-orange-300" title="Phiếu cơm">
+            <Utensils size={12} />
+            <span>{mealTickets}</span>
+          </div>
 
+          {/* Lòng Tin & Lương Tâm */}
+          <div className="flex items-center gap-1" title="Lòng Tin (quản lý)">
+            <span className="text-[10px] text-amber-300">Tin</span>
+            <div className="w-10 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+              <div className="bg-amber-400 h-full transition-all duration-300" style={{width: `${managerTrust}%`}} />
+            </div>
+            <span className="text-[11px] text-amber-200">{managerTrust}</span>
+          </div>
+          <div className="flex items-center gap-1" title="Lương Tâm">
+            <span className="text-[10px] text-violet-300">Tâm</span>
+            <div className="w-10 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+              <div
+                className={`h-full transition-all duration-300 ${conscience <= 15 ? 'bg-rose-500' : 'bg-violet-400'}`}
+                style={{width: `${conscience}%`}}
+              />
+            </div>
+            <span className="text-[11px] text-violet-200">{conscience}</span>
+          </div>
+
+          {/* Quỹ Chuộc Thân progress vs debt */}
           <div
-            className="hidden sm:flex items-center gap-1 text-yellow-300"
-            title="Quỹ Chuộc Thân (Mục tiêu $15,000)">
+            className="flex items-center gap-1 text-yellow-300"
+            title={`Quỹ Chuộc Thân: $${ransomFund} / Nợ $${ransomTarget}`}>
             <Shield size={13} />
-            <span>
-              Chuộc: ${ransomFund}/
-              {getConfig('targetRansom') as number}
+            <div className="w-16 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+              <div
+                className="bg-yellow-400 h-full transition-all duration-300"
+                style={{width: `${Math.min(100, (ransomFund / ransomTarget) * 100)}%`}}
+              />
+            </div>
+            <span className="text-[11px]">
+              ${ransomFund}/{ransomTarget}
             </span>
           </div>
+          {rescueDay !== null && (
+            <span className="text-[11px] text-emerald-300 animate-pulse" title="Đang chờ giải cứu">
+              Cứu hộ: sáng ngày {rescueDay}
+            </span>
+          )}
         </div>
 
         {/* Right: Menu & Audio HUD buttons */}
@@ -2330,127 +3085,41 @@ export default function App() {
         )}
 
         {/* Active Scene: Telesales CRT Desk Minigame */}
-        {sceneMode === 'TELESALES' && currentVictim && (
-          <div className="absolute inset-0 z-30 bg-[#0d1412] flex flex-col md:flex-row items-center justify-center p-3 gap-4 overflow-y-auto">
-            {/* Left: Caller Profile & Suspicion */}
-            <div className="w-full md:w-80 bg-[#16211e] border-2 border-[#2b3d37] rounded-lg p-4 shadow-xl flex flex-col items-center">
-              <div className="text-xs uppercase tracking-wider text-emerald-400 mb-2 font-bold">
-                Mục Tiêu Telesales
-              </div>
-              <div className="w-32 h-32 rounded-lg border-2 border-[#3b544b] overflow-hidden bg-slate-900 mb-3 relative flex items-center justify-center">
-                {assets[currentVictim.avatarKey] ? (
-                  <img
-                    src={assets[currentVictim.avatarKey]?.src}
-                    alt={currentVictim.name}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <Phone size={48} className="text-emerald-500" />
-                )}
-              </div>
-              <h3 className="font-bold text-sm text-yellow-300 text-center mb-1">
-                {currentVictim.name}
-              </h3>
-              <p className="text-[11px] text-slate-400 text-center mb-4">
-                {currentVictim.role}
-              </p>
+        {sceneMode === 'TELESALES' && (
+          <TelesalesScene
+            assets={assets}
+            conscience={conscience}
+            managerTrust={managerTrust}
+            failStreak={failStreak}
+            callsLeft={callsLeftToday}
+            quota={todayQuota}
+            paused={isGameMenuOpen || isHowToPlayOpen}
+            onChoice={handleCallChoice}
+            onCallEnd={handleCallEnd}
+            onExit={() => setSceneMode('OVERWORLD')}
+          />
+        )}
 
-              {/* Suspicion Meter */}
-              <div className="w-full bg-slate-900 border border-slate-700 rounded p-2 mb-3">
-                <div className="flex justify-between text-[11px] mb-1">
-                  <span className="text-slate-300">Độ Nghi Ngờ:</span>
-                  <span
-                    className={`font-bold ${
-                      victimSuspicion > 70
-                        ? 'text-red-400'
-                        : victimSuspicion > 40
-                        ? 'text-yellow-400'
-                        : 'text-emerald-400'
-                    }`}>
-                    {victimSuspicion}%
-                  </span>
-                </div>
-                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      victimSuspicion > 70
-                        ? 'bg-red-500'
-                        : victimSuspicion > 40
-                        ? 'bg-yellow-500'
-                        : 'bg-emerald-500'
-                    }`}
-                    style={{width: `${victimSuspicion}%`}}
-                  />
-                </div>
-              </div>
-
-              {/* Conscience & Trust */}
-              <div className="w-full grid grid-cols-2 gap-2 text-[10px]">
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
-                  <span className="text-slate-400">Lương Tâm:</span>
-                  <div className="font-bold text-cyan-300 text-xs">
-                    {conscience}/100
-                  </div>
-                </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
-                  <span className="text-slate-400">Tin Tưởng Sếp:</span>
-                  <div className="font-bold text-amber-300 text-xs">
-                    {managerTrust}/100
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: CRT Terminal Conversation Window */}
-            <div className="flex-1 max-w-2xl bg-[#09100d] border-2 border-[#1f382f] rounded-lg p-5 shadow-2xl flex flex-col">
-              {/* Terminal header */}
-              <div className="flex items-center justify-between border-b border-[#1f382f] pb-2 mb-3">
-                <div className="flex items-center gap-2 text-xs text-emerald-400">
-                  <PhoneCall size={14} className="animate-pulse" />
-                  <span>CUỘC GỌI ĐANG KẾT NỐI (MÃ: 098-XXX-XXXX)</span>
-                </div>
-                <span className="text-[10px] text-slate-500">
-                  Lượt {currentStepIndex + 1}/{currentVictim.dialogues.length}
-                </span>
-              </div>
-
-              {/* Dialogue Transcript Prompt */}
-              <div className="bg-[#0f1b17] border border-[#234236] p-4 rounded-md mb-4 text-emerald-300 text-sm leading-relaxed shadow-inner">
-                <span className="text-yellow-400 font-bold">Khách hàng: </span>
-                {currentDialogue?.prompt}
-              </div>
-
-              {/* System Feedback */}
-              {telesalesFeedback && (
-                <div className="p-3 mb-4 rounded bg-emerald-950 border border-emerald-600 text-xs text-emerald-200 animate-pulse">
-                  {telesalesFeedback}
-                </div>
-              )}
-
-              {/* Dialogue Choices */}
-              <div className="space-y-2.5">
-                <div className="text-[11px] text-slate-400 uppercase font-semibold">
-                  Chọn câu trả lời kịch bản:
-                </div>
-                {currentDialogue?.choices.map((choice, idx) => (
-                  <button
-                    key={idx}
-                    disabled={telesalesPendingAction}
-                    onClick={() => handleTelesalesChoice(choice)}
-                    className={`w-full text-left p-3 rounded-lg border text-xs md:text-sm transition-all flex items-start gap-2 ${
-                      choice.isWarning
-                        ? 'bg-rose-950/40 hover:bg-rose-900/60 border-rose-700 text-rose-200'
-                        : 'bg-[#15231e] hover:bg-[#1f352e] border-[#29453c] text-emerald-200 hover:border-emerald-500'
-                    }`}>
-                    <span className="font-bold text-yellow-400 shrink-0">
-                      [{idx + 1}]
-                    </span>
-                    <span>{choice.text}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* Active Scene: Roommates (night) */}
+        {sceneMode === 'ROOMMATES' && (
+          <RoommatesScene
+            roommates={roommates}
+            actionsLeft={nightActionsLeft}
+            mealTickets={mealTickets}
+            money={money}
+            dayNumber={dayNumber}
+            maxDays={MAX_DAYS}
+            hoaSchedule={hoaSchedule}
+            phoneFixed={phoneFixed}
+            messageSent={messageSent}
+            rescueDay={rescueDay}
+            log={roommateLog}
+            onTalk={handleTalk}
+            onShare={handleShare}
+            onFixPhone={handleFixPhone}
+            onSendMessage={handleSendMessage}
+            onExit={() => setSceneMode('OVERWORLD')}
+          />
         )}
 
         {/* Active Scene: Canteen Food Purchase */}
@@ -2501,6 +3170,16 @@ export default function App() {
               <p className="text-xs text-slate-300 mb-4">
                 Dùng tiền hoa hồng kiếm được để mua thực phẩm hồi phục Thể Lực và Tinh Thần.
               </p>
+
+              <button
+                onClick={handleUseMealTicket}
+                disabled={mealTickets <= 0}
+                className="w-full mb-3 flex items-center justify-between bg-[#1d1a10] border border-amber-700 p-3 rounded-lg hover:border-amber-500 disabled:opacity-40">
+                <span className="text-sm font-bold text-amber-300 flex items-center gap-2">
+                  <Utensils size={16} /> Đổi Phiếu Cơm → Dĩa Cơm Thịt (miễn phí)
+                </span>
+                <span className="text-xs text-amber-200">Còn {mealTickets} phiếu</span>
+              </button>
 
               <div className="space-y-3 mb-6">
                 {FOOD_MENU.map((item) => (
@@ -2601,6 +3280,50 @@ export default function App() {
                 </>
               )}
 
+              {endingType === 'RESCUE' && (
+                <>
+                  <Phone size={48} className="text-sky-400 mx-auto mb-3" />
+                  <h2 className="text-2xl font-black text-sky-300 mb-2">KẾT CỤC 5: GIẢI CỨU</h2>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                    Tin nhắn ngắn ngủi qua chiếc điện thoại Bảo sửa đã đến được với gia đình. Họ báo công an và Đại sứ quán. Rạng sáng ngày {rescueDay}, lực lượng chức năng ập vào khu trại. Bạn và nhiều người khác được đưa về nước.
+                  </p>
+                </>
+              )}
+
+              {endingType === 'WHISTLEBLOWER' && (
+                <>
+                  <AlertTriangle size={48} className="text-cyan-400 mx-auto mb-3" />
+                  <h2 className="text-2xl font-black text-cyan-300 mb-2">KẾT CỤC 6: NGƯỜI BÁO ĐỘNG</h2>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                    Bạn đã lén cảnh báo {WHISTLEBLOWER_TARGET} nạn nhân mà không bị phát hiện. Một trong số họ, Cô Tư, đã ghi âm cuộc gọi và trình báo công an. Đường dây bị triệt phá, khu trại bị giải tán. Bạn được giải cứu với lương tâm trong sạch.
+                  </p>
+                </>
+              )}
+
+              {endingType === 'SOLD' && (
+                <>
+                  <AlertTriangle size={48} className="text-rose-500 mx-auto mb-3" />
+                  <h2 className="text-2xl font-black text-rose-500 mb-2">KẾT CỤC 7: BỊ BÁN SANG TRẠI KHÁC</h2>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                    {MAX_DAYS} ngày trôi qua mà bạn vẫn chưa thoát được. Quản lý Hùng "bán" bạn sang một khu trại khác sâu hơn trong rừng, nơi không ai biết bạn ở đâu...
+                  </p>
+                </>
+              )}
+
+              {/* Info screen shown after EVERY ending */}
+              <div className="text-left bg-[#0b1411] border border-amber-700/70 rounded-lg p-3 mb-5" data-testid="ending-info">
+                <div className="font-bold text-amber-300 text-sm mb-1">DẤU HIỆU LỪA ĐẢO TUYỂN DỤNG</div>
+                <ul className="list-disc list-inside space-y-1 text-[12px] text-slate-200">
+                  {JOB_SCAM_SIGNS.map((sign) => (
+                    <li key={sign}>{sign}</li>
+                  ))}
+                </ul>
+                <div className="mt-2 text-[12px] text-emerald-300">
+                  Nếu bạn hoặc người thân gặp tình huống này: báo ngay cho <strong>Công an (113)</strong> hoặc liên hệ{' '}
+                  <strong>Đại sứ quán / Cơ quan đại diện Việt Nam</strong> ở nước sở tại (Bảo hộ công dân: +84 981 84 84 84).
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => {
@@ -2611,7 +3334,7 @@ export default function App() {
                   Xem Bảng Cảnh Tỉnh Cộng Đồng
                 </button>
                 <button
-                  onClick={initGame}
+                  onClick={() => initGame()}
                   className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg font-bold text-sm text-slate-200">
                   Chơi Lại Từ Đầu
                 </button>
@@ -2678,7 +3401,7 @@ export default function App() {
 
               <div className="flex justify-center">
                 <button
-                  onClick={initGame}
+                  onClick={() => initGame()}
                   className="px-8 py-3 bg-emerald-700 hover:bg-emerald-600 rounded-full font-bold text-sm text-white">
                   Bắt Đầu Lại Hành Trình Thoát Hiểm
                 </button>
@@ -2875,28 +3598,28 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">1. Mục Tiêu Trò Chơi:</strong>
                 <p>
-                  Sống sót trong trại lừa đảo việc làm, bảo toàn Thể Lực và Tinh Thần, tìm cách đào thoát qua hàng rào dây thép gai HOẶC tích lũy đủ $15,000 Quỹ Chuộc Thân.
+                  Sống sót tối đa {MAX_DAYS} ngày trong trại lừa đảo. Có nhiều lối thoát: vượt rào (Trốn Thoát), góp đủ Quỹ Chuộc Thân bằng khoản nợ (Chuộc Thân), nhờ Bảo sửa điện thoại để nhắn tin cầu cứu rồi sống sót {RESCUE_DELAY_DAYS} ngày (Giải Cứu), hoặc lén cảnh báo {WHISTLEBLOWER_TARGET} nạn nhân mà không bị phát hiện (Người Báo Động). Cẩn thận: Lương Tâm quá thấp mà Lòng Tin quá cao thì bạn sẽ thành "Kẻ Trở Thành Quỷ".
                 </p>
               </div>
 
               <div>
                 <strong className="text-emerald-400">2. Ca Làm Việc Telesales (Ban Ngày):</strong>
                 <p>
-                  Đến bàn máy tính trong Phòng Telesales. Mỗi ngày phải gọi đủ KPI tối thiểu. Lựa chọn các kịch bản lừa đảo cường điệu hoặc bấm "Cảnh báo nạn nhân". Cảnh báo nạn nhân giúp tăng Lương Tâm nhưng nếu quản lý Hùng phát hiện sẽ bị phạt giật điện (-25 Thể Lực, -25 Tinh Thần).
+                  Mỗi ngày phải gọi đủ {DAILY_QUOTA} cuộc (phím 1-3 chọn câu trả lời). Mỗi cuộc 4-5 lượt; Nghi Ngờ chạm 95% là nạn nhân cúp máy. Đạt: +Tiền, +Quỹ Chuộc Thân, +Phiếu Cơm, +Lòng Tin. Trượt 3 cuộc liên tiếp sẽ bị chích điện. Thỉnh thoảng hiện lựa chọn ẩn "Cảnh báo nạn nhân" (phím 4): +Lương Tâm nhưng có thể bị quản lý phát hiện. Chưa xong KPI thì không được về ngủ.
                 </p>
               </div>
 
               <div>
                 <strong className="text-emerald-400">3. Căn Tin & Năng Lượng:</strong>
                 <p>
-                  Dùng tiền kiếm được mua cơm hoặc mì gói để hồi phục Thể Lực và Tinh Thần. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã!
+                  Dùng tiền hoặc Phiếu Cơm để mua cơm thịt, mì gói, cơm trắng hồi phục Thể Lực và Tinh Thần. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã! Ban đêm, ghé "Bạn Cùng Phòng" trong ký túc xá để trò chuyện / chia đồ ăn (3 lượt mỗi đêm): Chị Hoa thân thiết sẽ tiết lộ lịch gác, Bảo sửa được điện thoại cũ, còn Tuấn đói quá có thể phản bội bạn. Mỗi sáng có thể xảy ra sự kiện ngẫu nhiên (khám phòng, mất điện, người mới, bạn cùng phòng bị "bán"). Game tự lưu, có thể Tiếp Tục ở màn hình chính.
                 </p>
               </div>
 
               <div>
                 <strong className="text-emerald-400">4. Lén Lút & Vượt Ngục (Ban Đêm):</strong>
                 <p>
-                  Ban đêm lính gác tuần tra với nón ánh sáng đèn pin. Hãy lén lút tìm Đèn Pin trong tủ đồ ký túc xá, rồi ra Kho Phế Liệu ngoài sân dùng cần tre khều [Bản Đồ Rách] và [Kìm Cắt Dây Thép] qua cửa sổ (60 giây, 5 lượt mỗi đêm, móc lệch tâm dễ tuột đồ). Khi đã có kìm và bản đồ, tiếp cận hàng rào phía Đông để bắt đầu màn chạy trốn 90 giây vượt rào!
+                  Ban đêm lính gác tuần tra với nón ánh sáng đèn pin. Hãy lén lút tìm Đèn Pin trong tủ đồ ký túc xá, rồi ra Kho Phế Liệu ngoài sân dùng cần tre khều [Bản Đồ Rách] và [Kìm Cắt Dây Thép] qua cửa sổ (60 giây, 5 lượt mỗi đêm, móc lệch tâm dễ tuột đồ). Bị nón đèn lính gác bắt được sẽ bị chích điện và mất 1 món đồ (ký túc xá là vùng an toàn). Khi đã có kìm và bản đồ, ban đêm tiếp cận hàng rào phía Đông để vượt rào: 90 giây, né nón đèn lính gác. Thất bại: bị phạt, nợ +$2.000, mất kìm và canh gác tăng cường.
                 </p>
               </div>
 
@@ -2919,6 +3642,36 @@ export default function App() {
               }}
               className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg font-bold text-xs text-white">
               Đã Hiểu, Quay Lại Trò Chơi
+            </button>
+          </div>
+        </MenuOverlay>
+      )}
+
+      {/* RANDOM DAILY EVENT MODAL */}
+      {dailyEvent && gameState.status === 'PLAYING' && sceneMode === 'OVERWORLD' && (
+        <MenuOverlay tone="neutral" zIndex={45}>
+          <div
+            data-testid="daily-event"
+            className={`w-full max-w-md bg-[#14201c] border-2 rounded-xl p-5 shadow-2xl text-white ${
+              dailyEvent.tone === 'bad' ? 'border-red-700' : dailyEvent.tone === 'good' ? 'border-emerald-500' : 'border-slate-600'
+            }`}>
+            <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+              Sáng ngày {dayNumber}/{MAX_DAYS} · Sự kiện
+            </div>
+            <h3
+              className={`text-lg font-black mb-2 ${
+                dailyEvent.tone === 'bad' ? 'text-red-400' : dailyEvent.tone === 'good' ? 'text-emerald-300' : 'text-yellow-300'
+              }`}>
+              {dailyEvent.title}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line mb-4">{dailyEvent.text}</p>
+            <button
+              onClick={() => {
+                gameAudio.playCrispClick();
+                setDailyEvent(null);
+              }}
+              className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 rounded-lg font-bold text-xs text-white">
+              Vào ca làm việc
             </button>
           </div>
         </MenuOverlay>
@@ -2948,8 +3701,19 @@ export default function App() {
             </div>
 
             <div className="w-full space-y-3">
+              {hasSave && (
+                <button
+                  onClick={() => {
+                    const save = readSave();
+                    if (save) initGame(save);
+                  }}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm md:text-base rounded-full transition-all shadow-lg flex items-center justify-center gap-2">
+                  <RotateCcw size={18} />
+                  TIẾP TỤC (NGÀY {readSave()?.dayNumber ?? '?'})
+                </button>
+              )}
               <button
-                onClick={initGame}
+                onClick={() => initGame()}
                 autoFocus
                 className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-base md:text-lg rounded-full transition-all shadow-lg flex items-center justify-center gap-2">
                 <Play size={20} />
@@ -2973,7 +3737,7 @@ export default function App() {
           title="BẠN ĐÃ GỤC NGÃ"
           description={`Điểm Số: ${gameState.score}`}
           actionLabel="THỬ LẠI"
-          onAction={initGame}
+          onAction={() => initGame()}
           icon={<RotateCw size={24} />}
           tone="danger"
         />
@@ -2984,7 +3748,7 @@ export default function App() {
           title="TỰ DO!"
           description={`Điểm Số: ${gameState.score}`}
           actionLabel="CHƠI LẠI"
-          onAction={initGame}
+          onAction={() => initGame()}
           icon={<RotateCw size={24} />}
           tone="victory"
         />

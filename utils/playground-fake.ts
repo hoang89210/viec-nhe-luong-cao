@@ -258,7 +258,9 @@ export class FakePlaygroundSDK {
     console.log(`🛑 [Fake SDK] gameOver called.`);
     this._broadcast({type: 'GAME_OVER', lobbyId});
     this._triggerLobbyStatus('GAME_ENDED');
-    this._showMockLeaderboard();
+    // Standalone/offline build: the game shows its own ending screen, so don't
+    // cover it with the fake Playground leaderboard (set in index.html).
+    if (!(window as any).__VNLC_OFFLINE__) this._showMockLeaderboard();
   }
 
   pauseStateChanged(isPaused: boolean): void {

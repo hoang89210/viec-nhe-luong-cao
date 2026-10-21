@@ -566,6 +566,70 @@ class GameAudio {
   }
 
   // INSERT_SFX_HERE
+  /** Phone-filtered tone (bandpassed like a cheap handset). */
+  private phoneTone(b: Beat, at: number, freq: number, dur: number, gain: number, type: OscillatorType = 'square') {
+    const {ctx, out} = b;
+    const osc = ctx.createOscillator();
+    const bp = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, at);
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(1400, at);
+    bp.Q.setValueAtTime(1.2, at);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(gain, at + 0.008);
+    g.gain.setValueAtTime(gain, at + Math.max(0.01, dur - 0.015));
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    osc.connect(bp);
+    bp.connect(g);
+    g.connect(out);
+    osc.start(at);
+    osc.stop(at + dur + 0.02);
+  }
+
+  /** Old-phone ring: two short double-trills. */
+  playPhoneRing() {
+    const b = this.begin();
+    if (!b) return;
+    for (let r = 0; r < 2; r++) {
+      const t0 = b.now + r * 0.45;
+      for (let i = 0; i < 6; i++) {
+        this.phoneTone(b, t0 + i * 0.05, i % 2 ? 480 : 440, 0.045, 0.06, 'sine');
+      }
+    }
+  }
+
+  /** Busy/dial tone after the target hangs up ("tút... tút..."). */
+  playDialTone() {
+    const b = this.begin();
+    if (!b) return;
+    for (let i = 0; i < 3; i++) {
+      this.phoneTone(b, b.now + i * 0.5, 425, 0.3, 0.07, 'sine');
+    }
+  }
+
+  /** One "Animal Crossing" style babble syllable through a phone line. */
+  playBabble(pitch = 1) {
+    const b = this.begin();
+    if (!b) return;
+    const base = (180 + Math.random() * 160) * pitch;
+    this.phoneTone(b, b.now, base, 0.055, 0.05, 'square');
+    this.noiseBurst(b, b.now, {dur: 0.04, gain: 0.012, from: 2500, to: 3500});
+  }
+
+  /** Electric zap for punishments: loud crackling buzz. */
+  playZap() {
+    const b = this.begin();
+    if (!b) return;
+    for (let i = 0; i < 7; i++) {
+      const t = b.now + i * 0.06 + Math.random() * 0.02;
+      this.noiseBurst(b, t, {dur: 0.05, gain: 0.28, from: 6000, to: 1500});
+      this.blip(b, t, {type: 'sawtooth', freq: 90 + Math.random() * 60, dur: 0.06, gain: 0.18});
+    }
+    this.blip(b, b.now, {type: 'square', freq: 60, freqTo: 40, dur: 0.5, gain: 0.12});
+  }
+
   /** Metallic clank (junk hitting junk / hook catching). */
   playClank() {
     const b = this.begin();
