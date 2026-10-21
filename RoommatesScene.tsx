@@ -88,7 +88,7 @@ export default function RoommatesScene(p: RoommatesSceneProps) {
             Trò chuyện (+quan hệ, +Tinh Thần) hoặc chia đồ ăn (1 phiếu cơm hoặc ${SHARE_FOOD_PRICE}; +quan hệ nhiều, +Lương Tâm).
           </div>
           <div className="flex flex-wrap gap-2 mt-2 text-[10px]">
-            {p.hoaSchedule && <span className="px-2 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-200">Đã biết lịch gác (Chị Hoa)</span>}
+            {p.hoaSchedule && <span className="px-2 py-0.5 rounded bg-amber-950 border border-amber-700 text-amber-200">Đã biết lịch gác (Chị Hoa): -20% tầm nhìn lính gác</span>}
             {p.phoneFixed && !p.messageSent && <span className="px-2 py-0.5 rounded bg-sky-950 border border-sky-700 text-sky-200">Có điện thoại cũ (Bảo sửa)</span>}
             {p.messageSent && p.rescueDay && (
               <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-600 text-emerald-200 animate-pulse">

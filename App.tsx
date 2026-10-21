@@ -883,11 +883,14 @@ function buildMazeGuards(failures: number, baseSpeed: number, knowsSchedule: boo
     angle: Math.atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x),
     state: 'UNAWARE' as const,
     suspicionTimer: 0,
-    visionRange: (150 + 12 * failures) * (knowsSchedule ? 0.85 : 1),
+    visionRange: (150 + 12 * failures) * (knowsSchedule ? HOA_VISION_MUL : 1),
     visionAngle: Math.PI / 3.2,
     speed: baseSpeed * speedMul,
   }));
 }
+
+// Chị Hoa's guard schedule: guard vision range -20% (overworld night + escape maze)
+const HOA_VISION_MUL = 0.8;
 
 interface SaveData {
   v: 1;
@@ -1661,7 +1664,7 @@ export default function App() {
     if (id === 'hoa' && rel >= 60 && !hoaSchedule) {
       setHoaSchedule(true);
       line = def.talk[2][0];
-      pushRoommateLog('★ Chị Hoa tiết lộ lịch gác: ban đêm lính gác đi chậm hơn và bạn thấy được lộ trình tuần tra (cả ở màn vượt rào).');
+      pushRoommateLog('★ Chị Hoa tiết lộ lịch gác: ban đêm lính gác đi chậm hơn, -20% tầm nhìn lính gác và bạn thấy được lộ trình tuần tra (cả ở màn vượt rào).');
     }
     if (id === 'tuan' && before < 60 && rel >= 60) {
       pushRoommateLog('★ Tuấn hứa sẽ ra hiệu khi lính gác khám phòng.');
@@ -2043,7 +2046,7 @@ export default function App() {
           const toPlayerX = pcx - guard.x;
           const toPlayerY = pcy - guard.y;
           const pDist = Math.hypot(toPlayerX, toPlayerY);
-          const range = guard.visionRange * (outageTonight ? 0.6 : 1);
+          const range = guard.visionRange * (outageTonight ? 0.6 : 1) * (hoaSchedule ? HOA_VISION_MUL : 1);
 
           if (pDist < range) {
             let angleDiff = Math.atan2(toPlayerY, toPlayerX) - guard.angle;
@@ -2527,7 +2530,7 @@ export default function App() {
         // Dynamic Vision Cone with gradient & particle shimmer
         ctx.save();
         const isAlert = guard.state === 'ALERT';
-        const coneRange = guard.visionRange * (isNight && outageTonight ? 0.6 : 1);
+        const coneRange = guard.visionRange * (isNight && outageTonight ? 0.6 : 1) * (isNight && hoaSchedule ? HOA_VISION_MUL : 1);
         const vGrad = ctx.createRadialGradient(
           guard.x,
           guard.y,
@@ -2658,7 +2661,7 @@ export default function App() {
         // Guard flashlight cones stay visible through the darkness
         ctx.save();
         guardsRef.current.forEach((guard) => {
-          const coneRange = guard.visionRange * (outageTonight ? 0.6 : 1);
+          const coneRange = guard.visionRange * (outageTonight ? 0.6 : 1) * (hoaSchedule ? HOA_VISION_MUL : 1);
           ctx.beginPath();
           ctx.moveTo(guard.x, guard.y);
           ctx.arc(guard.x, guard.y, coneRange, guard.angle - guard.visionAngle / 2, guard.angle + guard.visionAngle / 2);
@@ -2688,7 +2691,7 @@ export default function App() {
           ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
           ctx.font = 'bold 11px Courier New, monospace';
           ctx.textAlign = 'left';
-          ctx.fillText('Lịch gác (Chị Hoa): lính đi chậm, đường tuần tra hiện nét đứt', 310, 118);
+          ctx.fillText('Lịch gác (Chị Hoa): lính đi chậm, -20% tầm nhìn lính gác, tuần tra hiện nét đứt', 310, 118);
         }
         ctx.restore();
       }
@@ -3704,7 +3707,7 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">3. Căn Tin & Năng Lượng:</strong>
                 <p>
-                  Căn tin: Cơm Trắng $30 (+10 Thể Lực), Mì Gói $60 (+20/+5), Cơm Thịt $150 (+35/+10); Phiếu Cơm chỉ đổi được Cơm Trắng. Mỗi sáng bị trừ $100 phí ăn ở (thiếu thì cộng vào nợ); ngủ dậy chỉ hồi +20 Thể Lực. Tiền không tự vào Quỹ Chuộc Thân: hãy nộp ở quầy trong căn tin ($100/$500/Nộp hết), quỹ đủ 15.000 + nợ phát sinh là được chuộc thân. Tiền mặt trong túi có thể bị lính gác lấy một nửa khi khám phòng. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã! Ban đêm, ghé "Bạn Cùng Phòng" trong ký túc xá để trò chuyện / chia đồ ăn (3 lượt mỗi đêm): Chị Hoa thân thiết sẽ tiết lộ lịch gác, Bảo sửa được điện thoại cũ, còn Tuấn đói quá có thể phản bội bạn. Mỗi sáng có thể xảy ra sự kiện ngẫu nhiên (khám phòng, mất điện, người mới, bạn cùng phòng bị "bán"). Game tự lưu, có thể Tiếp Tục ở màn hình chính.
+                  Căn tin: Cơm Trắng $30 (+10 Thể Lực), Mì Gói $60 (+20/+5), Cơm Thịt $150 (+35/+10); Phiếu Cơm chỉ đổi được Cơm Trắng. Mỗi sáng bị trừ $100 phí ăn ở (thiếu thì cộng vào nợ); ngủ dậy chỉ hồi +20 Thể Lực. Tiền không tự vào Quỹ Chuộc Thân: hãy nộp ở quầy trong căn tin ($100/$500/Nộp hết), quỹ đủ 15.000 + nợ phát sinh là được chuộc thân. Tiền mặt trong túi có thể bị lính gác lấy một nửa khi khám phòng. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã! Ban đêm, ghé "Bạn Cùng Phòng" trong ký túc xá để trò chuyện / chia đồ ăn (3 lượt mỗi đêm): Chị Hoa thân thiết (từ 60 điểm) sẽ tiết lộ lịch gác (lính đi chậm hơn, -20% tầm nhìn lính gác cả ban đêm lẫn màn vượt rào, hiện lộ trình tuần tra, gửi tin nhắn ít rủi ro hơn), Bảo sửa được điện thoại cũ, còn Tuấn đói quá có thể phản bội bạn. Mỗi sáng có thể xảy ra sự kiện ngẫu nhiên (khám phòng, mất điện, người mới, bạn cùng phòng bị "bán"). Game tự lưu, có thể Tiếp Tục ở màn hình chính.
                 </p>
               </div>
 
