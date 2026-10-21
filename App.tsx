@@ -2,10 +2,6 @@
 /* eslint-disable */
 import {
   AlertTriangle,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   Award,
   BookOpen,
   DollarSign,
@@ -43,6 +39,7 @@ import TelesalesScene, {CallResult} from './TelesalesScene';
 import JunkStorageScene, {QUEST_ITEM_INFO, QuestItemId} from './JunkStorageScene';
 import {SpriteActionConfig, SpriteAnimationState, SpriteRenderer} from './SpriteRenderer';
 import BackgroundMusic from './utils/BackgroundMusic';
+import {enterFullscreenLandscape, FullscreenButton, RotateOverlay, TouchControls, useIsPortrait, useIsTouch} from './TouchControls';
 import {
   createFixedStepper,
   drawAsset,
@@ -57,7 +54,6 @@ import {
   useAssets,
   useAutoFocus,
   useInput,
-  useIsMobile,
 } from './utils/helper';
 import {usePlayground, usePlaygroundGameLifecycle, useRpc} from './utils/usePlayground';
 
@@ -941,7 +937,9 @@ export default function App() {
   // Separate edge-detector for the interact key (sharing lastCancelRef made a held
   // Space/A re-trigger interactions every frame, e.g. toggling day/night repeatedly).
   const lastConfirmRef = useRef(false);
-  const isMobile = useIsMobile();
+  // Phones: touch controls / fullscreen / rotate hint only on coarse-pointer devices
+  const isTouch = useIsTouch();
+  const isPortrait = useIsPortrait();
 
   // Playground SDK Integration
   const {sdk} = usePlayground();
@@ -1255,6 +1253,12 @@ export default function App() {
   const showToast = useCallback((msg: string) => {
     setNotification(msg);
   }, []);
+  // Phones: the toast overlays the stage, so let it fade away by itself
+  useEffect(() => {
+    if (!isTouch || !notification) return;
+    const t = setTimeout(() => setNotification(null), 7000);
+    return () => clearTimeout(t);
+  }, [isTouch, notification]);
 
   // Latest stat values for callbacks that fire after a delay
   const statsRef = useRef({managerTrust, conscience, ransomFund, extraDebt, failStreak, warnedToday, warningsUncaught});
@@ -3020,36 +3024,36 @@ export default function App() {
       />
 
       {/* DEDICATED TOP HUD (Strictly non-overlapping, small text, responsive flex-wrap) */}
-      <header className="w-full bg-[#111816] border-b border-[#243430] px-3 py-1.5 z-20 shrink-0 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+      <header className="w-full bg-[#111816] border-b border-[#243430] px-3 py-1.5 z-20 shrink-0 flex flex-wrap items-center justify-between gap-2 shadow-lg short:flex-nowrap short:px-1.5 short:py-0.5 short:gap-1.5 short:overflow-x-auto">
         {/* Left: Day & Phase & Objectives */}
-        <div className="flex items-center gap-3 text-xs md:text-sm">
+        <div className="flex items-center gap-3 text-xs md:text-sm short:gap-1.5 short:text-[11px] short:shrink-0 whitespace-nowrap">
           <span className="font-bold text-emerald-400 tracking-wide">
             {isNight ? (
               <span className="flex items-center gap-1 text-indigo-400">
-                <Moon size={14} /> Ban Đêm (Lén Lút)
+                <Moon size={14} /> <span className="short:hidden">Ban Đêm (Lén Lút)</span><span className="hidden short:inline">Đêm</span>
               </span>
             ) : (
               <span className="flex items-center gap-1 text-amber-400">
-                <Sun size={14} /> Ban Ngày (Ca Làm Việc)
+                <Sun size={14} /> <span className="short:hidden">Ban Ngày (Ca Làm Việc)</span><span className="hidden short:inline">Ngày</span>
               </span>
             )}
           </span>
           <span className="text-slate-400">
-            Ngày {dayNumber}/{MAX_DAYS}
+            <span className="short:hidden">Ngày </span>{dayNumber}/{MAX_DAYS}
           </span>
-          <span className="text-slate-400">|</span>
-          <span className="text-slate-300">
-            KPI Còn:{' '}
+          <span className={`text-slate-400 ${sceneMode === 'ESCAPE_MAZE' ? 'short:hidden' : ''}`}>|</span>
+          <span className={`text-slate-300 ${sceneMode === 'ESCAPE_MAZE' ? 'short:hidden' : ''}`}>
+            KPI<span className="short:hidden"> Còn</span>:{' '}
             <strong className="text-yellow-400">{callsLeftToday}</strong> cuộc
           </span>
         </div>
 
         {/* Center: Survival Meters */}
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-4 text-xs short:gap-2 short:shrink-0 whitespace-nowrap">
           {/* Stamina */}
           <div className="flex items-center gap-1.5" title="Thể Lực">
             <Heart size={14} className="text-red-400" />
-            <div className="w-16 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+            <div className="w-16 short:w-7 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
               <div
                 className="bg-red-500 h-full transition-all duration-300"
                 style={{width: `${stamina}%`}}
@@ -3061,7 +3065,7 @@ export default function App() {
           {/* Morale */}
           <div className="flex items-center gap-1.5" title="Tinh Thần">
             <Smile size={14} className="text-cyan-400" />
-            <div className="w-16 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+            <div className="w-16 short:w-7 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
               <div
                 className="bg-cyan-400 h-full transition-all duration-300"
                 style={{width: `${morale}%`}}
@@ -3083,14 +3087,14 @@ export default function App() {
           {/* Lòng Tin & Lương Tâm */}
           <div className="flex items-center gap-1" title="Lòng Tin (quản lý)">
             <span className="text-[10px] text-amber-300">Tin</span>
-            <div className="w-10 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+            <div className="w-10 short:hidden bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
               <div className="bg-amber-400 h-full transition-all duration-300" style={{width: `${managerTrust}%`}} />
             </div>
             <span className="text-[11px] text-amber-200">{managerTrust}</span>
           </div>
           <div className="flex items-center gap-1" title="Lương Tâm">
             <span className="text-[10px] text-violet-300">Tâm</span>
-            <div className="w-10 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+            <div className="w-10 short:hidden bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
               <div
                 className={`h-full transition-all duration-300 ${conscience <= 15 ? 'bg-rose-500' : 'bg-violet-400'}`}
                 style={{width: `${conscience}%`}}
@@ -3104,7 +3108,7 @@ export default function App() {
             className="flex items-center gap-1 text-yellow-300"
             title={`Quỹ Chuộc Thân: $${ransomFund} / Nợ $${ransomTarget}`}>
             <Shield size={13} />
-            <div className="w-16 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+            <div className="w-16 short:w-7 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
               <div
                 className="bg-yellow-400 h-full transition-all duration-300"
                 style={{width: `${Math.min(100, (ransomFund / ransomTarget) * 100)}%`}}
@@ -3122,10 +3126,11 @@ export default function App() {
         </div>
 
         {/* Right: Menu & Audio HUD buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 short:gap-1 short:shrink-0">
+          {isTouch && <FullscreenButton className="h-8 w-9 short:h-9 short:w-10" />}
           {sceneMode === 'ESCAPE_MAZE' && (
-            <div className="bg-red-950 border border-red-600 text-red-400 px-2 py-0.5 rounded font-bold text-xs animate-pulse">
-              ĐÀO THOÁT: {formatTime(escapeTimer)}
+            <div className="bg-red-950 border border-red-600 text-red-400 px-2 py-0.5 rounded font-bold text-xs animate-pulse whitespace-nowrap short:px-1 short:text-[11px]">
+              <span className="short:hidden">ĐÀO THOÁT: </span>⏱ {formatTime(escapeTimer)}
             </div>
           )}
 
@@ -3134,8 +3139,9 @@ export default function App() {
               gameAudio.playCrispClick();
               setIsHowToPlayOpen(true);
             }}
-            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] text-slate-300 flex items-center gap-1">
-            <HelpCircle size={13} /> Hướng Dẫn
+            aria-label="Hướng Dẫn"
+            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-[11px] text-slate-300 flex items-center gap-1 short:h-9 short:min-w-[40px] short:justify-center">
+            <HelpCircle size={13} /> <span className="short:hidden">Hướng Dẫn</span>
           </button>
 
           <button
@@ -3143,7 +3149,7 @@ export default function App() {
               gameAudio.playCrispClick();
               setIsGameMenuOpen(true);
             }}
-            className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-700 border border-emerald-600 rounded text-xs font-bold text-white flex items-center gap-1">
+            className="px-2.5 py-1 bg-emerald-800 hover:bg-emerald-700 border border-emerald-600 rounded text-xs font-bold text-white flex items-center gap-1 short:h-9 short:min-w-[44px] short:justify-center">
             <Menu size={14} /> Menu
           </button>
         </div>
@@ -3151,21 +3157,21 @@ export default function App() {
 
       {/* NOTIFICATION TOAST BAR */}
       {notification && (
-        <div className="w-full bg-[#182622] border-b border-[#2d423b] px-4 py-1 text-xs text-emerald-200 flex items-center justify-between shrink-0">
+        <div className="w-full bg-[#182622] border-b border-[#2d423b] px-4 py-1 text-xs text-emerald-200 flex items-center justify-between shrink-0 short:absolute short:top-10 short:left-0 short:right-0 short:z-[35] short:bg-[#182622]/90 short:text-[11px] short:pointer-events-auto">
           <div className="flex items-center gap-2 truncate">
             <AlertTriangle size={13} className="text-yellow-400 shrink-0" />
-            <span className="truncate">{notification}</span>
+            <span className="truncate short:whitespace-normal short:line-clamp-2">{notification}</span>
           </div>
           <button
             onClick={() => setNotification(null)}
-            className="text-slate-400 hover:text-white ml-2 text-xs">
+            className="text-slate-400 hover:text-white ml-2 text-xs short:min-w-[32px] short:h-6">
             ✕
           </button>
         </div>
       )}
 
       {/* MAIN VIEWPORT CONTAINER */}
-      <main className="flex-1 w-full min-h-0 relative flex items-center justify-center bg-[#0a0f0d]">
+      <main className="vnlc-stage flex-1 w-full min-h-0 relative flex items-center justify-center bg-[#0a0f0d]">
         {/* Active Scene: Overworld or Escape Maze */}
         {(sceneMode === 'OVERWORLD' || sceneMode === 'ESCAPE_MAZE') && (
           <canvas
@@ -3176,7 +3182,7 @@ export default function App() {
               aspectRatio: `${canvasWidth} / ${canvasHeight}`,
               width: `min(100%, calc(100vh * ${canvasWidth} / ${canvasHeight}))`,
             }}
-            className="h-auto max-w-full max-h-full drop-shadow-2xl"
+            className="vnlc-stage-canvas h-auto max-w-full max-h-full drop-shadow-2xl"
           />
         )}
 
@@ -3253,7 +3259,7 @@ export default function App() {
         )}
 
         {sceneMode === 'CANTEEN' && (
-          <div className="absolute inset-0 z-30 bg-[#0d1412] flex flex-col items-center justify-center p-4 overflow-y-auto">
+          <div className="vnlc-scene vnlc-scroll absolute inset-0 z-30 bg-[#0d1412] flex flex-col items-center justify-center p-4 overflow-y-auto">
             <div className="w-full max-w-lg bg-[#15221e] border-2 border-[#2c423b] rounded-xl p-5 shadow-2xl my-auto">
               <div className="flex items-center justify-between border-b border-[#2c423b] pb-3 mb-4">
                 <div className="flex items-center gap-2 text-emerald-400 font-bold">
@@ -3348,7 +3354,7 @@ export default function App() {
 
         {/* Active Scene: Narrative Endings Screen */}
         {sceneMode === 'ENDING' && endingType && (
-          <div className="absolute inset-0 z-40 bg-black/90 flex flex-col items-center justify-center p-4 overflow-y-auto">
+          <div className="vnlc-scene vnlc-scroll absolute inset-0 z-40 bg-black/90 flex flex-col items-center justify-center p-4 overflow-y-auto">
             <div className="w-full max-w-xl bg-[#141f1c] border-2 border-emerald-600 rounded-xl p-6 shadow-2xl text-center">
               {endingType === 'ESCAPE' && (
                 <>
@@ -3463,7 +3469,7 @@ export default function App() {
 
         {/* Active Scene: Real-World Public Awareness Board */}
         {sceneMode === 'AWARENESS' && (
-          <div className="absolute inset-0 z-40 bg-[#0c1210] flex flex-col items-center justify-center p-4 overflow-y-auto">
+          <div className="vnlc-scene vnlc-scroll absolute inset-0 z-40 bg-[#0c1210] flex flex-col items-center justify-center p-4 overflow-y-auto">
             <div className="w-full max-w-3xl bg-[#14201c] border-2 border-[#2b4038] rounded-xl p-6 shadow-2xl relative">
               <h2 className="text-xl md:text-2xl font-black text-yellow-400 text-center mb-1">
                 BẢNG THÔNG TIN CẢNH TỈNH CỘNG ĐỒNG
@@ -3527,98 +3533,28 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* Touch controls (phones): joystick bottom-left, action bottom-right, over the stage */}
+        {isTouch &&
+          gameState.status === 'PLAYING' &&
+          !dailyEvent &&
+          !isGameMenuOpen &&
+          !isHowToPlayOpen &&
+          (sceneMode === 'OVERWORLD' || sceneMode === 'ESCAPE_MAZE') && (
+            <TouchControls
+              inputRef={mobileInputRef}
+              showAction={sceneMode === 'OVERWORLD'}
+              onAction={() => {
+                // mark the edge as consumed so the update loop doesn't fire it a 2nd time
+                lastConfirmRef.current = true;
+                handleInteraction();
+              }}
+            />
+          )}
       </main>
 
-      {/* MOBILE ON-SCREEN CONTROLS (Rendered conditionally via useIsMobile) */}
-      {isMobile &&
-        gameState.status === 'PLAYING' &&
-        (sceneMode === 'OVERWORLD' || sceneMode === 'ESCAPE_MAZE') && (
-          <div className="w-full bg-[#111816] border-t border-[#243430] p-2 shrink-0 flex items-center justify-between select-none z-20">
-            {/* D-Pad on Left */}
-            <div className="grid grid-cols-3 gap-1 w-36 h-36 p-1">
-              <div />
-              <button
-                onPointerDown={() => {
-                  mobileInputRef.current.up = true;
-                }}
-                onPointerUp={() => {
-                  mobileInputRef.current.up = false;
-                }}
-                onPointerLeave={() => {
-                  mobileInputRef.current.up = false;
-                }}
-                className="w-12 h-12 bg-slate-800 active:bg-emerald-600 rounded-lg flex items-center justify-center text-white border border-slate-700 touch-none">
-                <ArrowUp size={20} />
-              </button>
-              <div />
-
-              <button
-                onPointerDown={() => {
-                  mobileInputRef.current.left = true;
-                }}
-                onPointerUp={() => {
-                  mobileInputRef.current.left = false;
-                }}
-                onPointerLeave={() => {
-                  mobileInputRef.current.left = false;
-                }}
-                className="w-12 h-12 bg-slate-800 active:bg-emerald-600 rounded-lg flex items-center justify-center text-white border border-slate-700 touch-none">
-                <ArrowLeft size={20} />
-              </button>
-              <div className="w-12 h-12 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-800" />
-              <button
-                onPointerDown={() => {
-                  mobileInputRef.current.right = true;
-                }}
-                onPointerUp={() => {
-                  mobileInputRef.current.right = false;
-                }}
-                onPointerLeave={() => {
-                  mobileInputRef.current.right = false;
-                }}
-                className="w-12 h-12 bg-slate-800 active:bg-emerald-600 rounded-lg flex items-center justify-center text-white border border-slate-700 touch-none">
-                <ArrowRight size={20} />
-              </button>
-
-              <div />
-              <button
-                onPointerDown={() => {
-                  mobileInputRef.current.down = true;
-                }}
-                onPointerUp={() => {
-                  mobileInputRef.current.down = false;
-                }}
-                onPointerLeave={() => {
-                  mobileInputRef.current.down = false;
-                }}
-                className="w-12 h-12 bg-slate-800 active:bg-emerald-600 rounded-lg flex items-center justify-center text-white border border-slate-700 touch-none">
-                <ArrowDown size={20} />
-              </button>
-              <div />
-            </div>
-
-            {/* Interact Button on Right */}
-            <div className="pr-4">
-              <button
-                onPointerDown={() => {
-                  mobileInputRef.current.interact = true;
-                  // mark the edge as consumed so the update loop doesn't fire it a 2nd time
-                  lastConfirmRef.current = true;
-                  handleInteraction();
-                }}
-                onPointerUp={() => {
-                  mobileInputRef.current.interact = false;
-                }}
-                onPointerLeave={() => {
-                  mobileInputRef.current.interact = false;
-                }}
-                className="w-20 h-20 bg-emerald-700 active:bg-emerald-500 rounded-full font-bold text-sm text-white flex flex-col items-center justify-center border-2 border-emerald-400 shadow-lg touch-none">
-                <span>NÚT A</span>
-                <span className="text-[10px] text-emerald-200">Tương tác</span>
-              </button>
-            </div>
-          </div>
-        )}
+      {/* Phone held upright: ask to rotate */}
+      {isTouch && isPortrait && <RotateOverlay />}
 
       {/* GAME MENU OVERLAY (Mandatory Architecture) */}
       {isGameMenuOpen && (
@@ -3791,7 +3727,7 @@ export default function App() {
                 src={assets[DAILY_EVENT_ART[dailyEvent.id]]!.src}
                 alt=""
                 data-testid="daily-event-art"
-                className="w-full aspect-video object-cover rounded-md border border-black/60 mb-3"
+                className="w-full aspect-video object-cover rounded-md border border-black/60 mb-3 short:h-20 short:aspect-auto short:mb-2"
               />
             )}
             <div className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">
@@ -3854,6 +3790,7 @@ export default function App() {
                 <button
                   onClick={() => {
                     const save = readSave();
+                    if (isTouch) enterFullscreenLandscape();
                     if (save) initGame(save);
                   }}
                   className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm md:text-base rounded-full transition-all shadow-lg flex items-center justify-center gap-2">
@@ -3862,7 +3799,10 @@ export default function App() {
                 </button>
               )}
               <button
-                onClick={() => initGame()}
+                onClick={() => {
+                  if (isTouch) enterFullscreenLandscape();
+                  initGame();
+                }}
                 autoFocus
                 className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-base md:text-lg rounded-full transition-all shadow-lg flex items-center justify-center gap-2">
                 <Play size={20} />

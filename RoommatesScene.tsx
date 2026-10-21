@@ -74,7 +74,7 @@ export default function RoommatesScene(p: RoommatesSceneProps) {
   const noActions = p.actionsLeft <= 0;
   const canPayFood = p.mealTickets > 0 || p.money >= SHARE_FOOD_PRICE;
   return (
-    <div className="absolute inset-0 z-30 bg-[#0b1110] flex flex-col items-center p-3 gap-3 overflow-y-auto">
+    <div className="vnlc-scene vnlc-scroll absolute inset-0 z-30 bg-[#0b1110] flex flex-col items-center p-3 gap-3 overflow-y-auto">
       <div className="w-full max-w-4xl flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-indigo-300 font-bold">

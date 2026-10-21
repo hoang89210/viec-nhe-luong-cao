@@ -44,3 +44,55 @@ body,
   text-shadow: 0 0 12px #fde047, 3px 0 #ef4444, -3px 0 #22d3ee;
   transform: skewX(-8deg);
 }
+
+/* ---------------------------------------------------------------------------
+ * Mobile / touch: no page scroll, pull-to-refresh, double-tap zoom, text
+ * selection or tap flash while playing. Inner scene panels still scroll.
+ * ------------------------------------------------------------------------- */
+html,
+body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+#root {
+  height: 100dvh;
+}
+.vnlc-scroll {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Phones in landscape (~800x360 CSS px). Desktop windows are never this short. */
+@media (max-height: 520px) and (orientation: landscape) {
+  /* overworld / maze canvas: fill the stage (letterbox only on the sides) */
+  .vnlc-stage {
+    container-type: size;
+  }
+  .vnlc-stage-canvas {
+    width: min(100cqw, calc(100cqh * 16 / 9)) !important;
+    height: auto !important;
+    max-height: 100cqh;
+    filter: none !important;
+  }
+  /* scrolling scene panels: start at the top so nothing is clipped above */
+  .vnlc-scene {
+    justify-content: flex-start !important;
+    padding: 6px !important;
+  }
+  /* Kho Phế Liệu canvas between the side controls */
+  .vnlc-junk-canvas {
+    width: min(calc(100vw - 230px), calc((100dvh - 92px) * 16 / 9)) !important;
+  }
+}
+
+@keyframes vnlc-rotate-hint {
+  0%, 20% { transform: rotate(0deg); }
+  50%, 80% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+.vnlc-rotate-hint { animation: vnlc-rotate-hint 2.4s ease-in-out infinite; }

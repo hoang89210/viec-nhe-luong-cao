@@ -208,11 +208,11 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
   const sColor = suspicion > 70 ? 'text-red-400' : suspicion > 40 ? 'text-yellow-400' : 'text-emerald-400';
 
   return (
-    <div className="absolute inset-0 z-30 bg-[#0d1412] flex flex-col md:flex-row items-center justify-center p-3 gap-4 overflow-y-auto">
+    <div className="vnlc-scene vnlc-scroll absolute inset-0 z-30 bg-[#0d1412] flex flex-col md:flex-row items-center justify-center p-3 gap-4 overflow-y-auto short:flex-row short:items-start short:gap-2">
       {/* Left: caller profile */}
-      <div className="w-full md:w-80 bg-[#16211e] border-2 border-[#2b3d37] rounded-lg p-4 shadow-xl flex flex-col items-center">
-        <div className="text-xs uppercase tracking-wider text-emerald-400 mb-2 font-bold">Mục Tiêu Telesales</div>
-        <div className="w-32 h-32 rounded-lg border-2 border-[#3b544b] overflow-hidden bg-slate-900 mb-3 relative flex items-center justify-center">
+      <div className="w-full md:w-80 bg-[#16211e] border-2 border-[#2b3d37] rounded-lg p-4 shadow-xl flex flex-col items-center short:w-52 short:shrink-0 short:p-2">
+        <div className="text-xs uppercase tracking-wider text-emerald-400 mb-2 font-bold short:hidden">Mục Tiêu Telesales</div>
+        <div className="w-32 h-32 rounded-lg border-2 border-[#3b544b] overflow-hidden bg-slate-900 mb-3 relative flex items-center justify-center short:w-20 short:h-20 short:mb-1">
           {victim.avatarKey && assets[victim.avatarKey] ? (
             <img src={assets[victim.avatarKey]?.src} alt={victim.name} className="w-full h-full object-contain" />
           ) : (
@@ -225,9 +225,9 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
           )}
         </div>
         <h3 className="font-bold text-sm text-yellow-300 text-center mb-1">{victim.name}</h3>
-        <p className="text-[11px] text-slate-400 text-center mb-4">{victim.role}</p>
+        <p className="text-[11px] text-slate-400 text-center mb-4 short:mb-1.5 short:text-[10px] short:leading-tight">{victim.role}</p>
 
-        <div className="w-full bg-slate-900 border border-slate-700 rounded p-2 mb-3">
+        <div className="w-full bg-slate-900 border border-slate-700 rounded p-2 mb-3 short:p-1.5 short:mb-1.5">
           <div className="flex justify-between text-[11px] mb-1">
             <span className="text-slate-300">Nghi Ngờ:</span>
             <span className={`font-bold ${sColor}`}>{suspicion}%</span>
@@ -243,7 +243,7 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
           <div className="text-[9px] text-slate-500 mt-1">Chạm {FAIL_AT}% là nạn nhân cúp máy.</div>
         </div>
 
-        <div className="w-full grid grid-cols-2 gap-2 text-[10px]">
+        <div className="w-full grid grid-cols-2 gap-2 text-[10px] short:gap-1">
           <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
             <span className="text-slate-400">Lương Tâm:</span>
             <div className="font-bold text-cyan-300 text-xs">{conscience}/100</div>
@@ -271,8 +271,8 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
       </div>
 
       {/* Right: CRT conversation */}
-      <div className="flex-1 w-full max-w-2xl bg-[#09100d] border-2 border-[#1f382f] rounded-lg p-5 shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between border-b border-[#1f382f] pb-2 mb-3">
+      <div className="flex-1 w-full max-w-2xl bg-[#09100d] border-2 border-[#1f382f] rounded-lg p-5 shadow-2xl flex flex-col short:p-2.5 short:min-w-0">
+        <div className="flex items-center justify-between border-b border-[#1f382f] pb-2 mb-3 short:pb-1.5 short:mb-2">
           <div className="flex items-center gap-2 text-xs text-emerald-400">
             {phase === 'RESULT' ? <PhoneOff size={14} /> : <PhoneCall size={14} className="animate-pulse" />}
             <span>{phase === 'RINGING' ? 'ĐANG GỌI... (098-XXX-XXXX)' : phase === 'RESULT' ? 'CUỘC GỌI ĐÃ KẾT THÚC' : 'ĐANG TRONG CUỘC GỌI'}</span>
@@ -287,7 +287,7 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
                 gameAudio.playCrispClick();
               }}
               title="Bật/tắt giọng đọc"
-              className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold ${
+              className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold short:h-8 ${
                 voiceOn ? 'border-emerald-600 text-emerald-300 bg-emerald-950/60' : 'border-slate-600 text-slate-400 bg-slate-900'
               }`}>
               {voiceOn ? <Mic size={11} /> : <MicOff size={11} />} Giọng đọc: {voiceOn ? 'Bật' : 'Tắt'}
@@ -301,7 +301,7 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
         {phase !== 'RESULT' && (
           <>
             <div
-              className="bg-[#0f1b17] border border-[#234236] p-4 rounded-md mb-4 text-emerald-300 text-sm leading-relaxed shadow-inner min-h-[88px] cursor-pointer"
+              className="bg-[#0f1b17] border border-[#234236] p-4 rounded-md mb-4 text-emerald-300 text-sm leading-relaxed shadow-inner min-h-[88px] cursor-pointer short:p-2.5 short:mb-2 short:min-h-[56px] short:text-[13px] short:leading-snug"
               onClick={() => setTyped(prompt.length)}>
               {phase === 'RINGING' ? (
                 <span className="text-slate-500 italic">Reng reng... reng reng...</span>
@@ -315,17 +315,17 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
             </div>
 
             {feedback && (
-              <div className="p-2 mb-3 rounded bg-emerald-950 border border-emerald-700 text-xs text-emerald-200">{feedback}</div>
+              <div className="p-2 mb-3 rounded bg-emerald-950 border border-emerald-700 text-xs text-emerald-200 short:p-1.5 short:mb-2">{feedback}</div>
             )}
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 short:space-y-1.5">
               <div className="text-[11px] text-slate-400 uppercase font-semibold">Chọn câu trả lời kịch bản (phím 1-3):</div>
               {choices.map((choice, idx) => (
                 <button
                   key={`${step}-${idx}`}
                   disabled={busy || phase !== 'TALK' || !typingDone}
                   onClick={() => pick(choice)}
-                  className="w-full text-left p-3 rounded-lg border text-xs md:text-sm transition-all flex items-start gap-2 bg-[#15231e] hover:bg-[#1f352e] border-[#29453c] text-emerald-200 hover:border-emerald-500 disabled:opacity-40">
+                  className="w-full text-left p-3 rounded-lg border text-xs md:text-sm transition-all flex items-start gap-2 short:p-2.5 short:min-h-[42px] short:text-[12.5px] bg-[#15231e] hover:bg-[#1f352e] border-[#29453c] text-emerald-200 hover:border-emerald-500 disabled:opacity-40">
                   <span className="font-bold text-yellow-400 shrink-0">[{idx + 1}]</span>
                   <span>{choice.text}</span>
                 </button>
@@ -334,7 +334,7 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
                 <button
                   disabled={busy || phase !== 'TALK' || !typingDone}
                   onClick={() => pick('WARN')}
-                  className="w-full text-left p-3 rounded-lg border text-xs md:text-sm transition-all flex items-start gap-2 bg-rose-950/40 hover:bg-rose-900/60 border-rose-700 text-rose-200 disabled:opacity-40">
+                  className="w-full text-left p-3 rounded-lg border text-xs md:text-sm transition-all flex items-start gap-2 short:p-2.5 short:min-h-[42px] short:text-[12.5px] bg-rose-950/40 hover:bg-rose-900/60 border-rose-700 text-rose-200 disabled:opacity-40">
                   <span className="font-bold text-rose-400 shrink-0 flex items-center gap-1">
                     <AlertTriangle size={13} />[4] Cảnh báo nạn nhân:
                   </span>

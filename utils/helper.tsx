@@ -72,8 +72,8 @@ export function Overlay({
 
   return (
     <div
-      className={`absolute inset-0 ${TONE_CLASS[tone]} overflow-y-auto touch-auto`}>
-      <div className="min-h-full flex flex-col items-center p-4">
+      className={`vnlc-scroll absolute inset-0 ${TONE_CLASS[tone]} overflow-y-auto touch-auto`}>
+      <div className="min-h-full flex flex-col items-center p-4 short:p-2">
         <div className="m-auto flex flex-col items-center w-full max-w-md">
           <h1 className="text-3xl md:text-5xl font-black mb-4 text-yellow-400 text-center">
             {title}
@@ -117,9 +117,9 @@ export function MenuOverlay({
 }: MenuOverlayProps) {
   return (
     <div
-      className={`absolute inset-0 ${TONE_CLASS[tone]} overflow-y-auto touch-auto`}
+      className={`vnlc-scroll absolute inset-0 ${TONE_CLASS[tone]} overflow-y-auto touch-auto`}
       style={{zIndex}}>
-      <div className="min-h-full flex flex-col items-center p-4">
+      <div className="min-h-full flex flex-col items-center p-4 short:p-2">
         <div className="m-auto w-full max-w-md flex flex-col items-center">
           {children}
         </div>

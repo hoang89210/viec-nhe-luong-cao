@@ -670,11 +670,11 @@ export default function JunkStorageScene({
   const busy = hud.state === 'SWEEP' || hud.state === 'DONE';
 
   return (
-    <div className="absolute inset-0 z-30 bg-[#0d1412] flex flex-col items-center justify-center p-2 gap-2 overflow-y-auto">
+    <div className="vnlc-scene vnlc-scroll absolute inset-0 z-30 bg-[#0d1412] flex flex-col items-center justify-center p-2 gap-2 overflow-y-auto short:gap-1">
       {/* Scene header */}
-      <div className="w-full max-w-4xl flex flex-wrap items-center justify-between gap-2 bg-[#15221e] border-2 border-[#2c423b] rounded-lg px-3 py-2">
-        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
-          <Package size={16} /> Kho Phế Liệu - Khều Đồ Qua Cửa Sổ
+      <div className="w-full max-w-4xl flex flex-wrap items-center justify-between gap-2 bg-[#15221e] border-2 border-[#2c423b] rounded-lg px-3 py-2 short:py-1 short:flex-nowrap">
+        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm short:text-xs">
+          <Package size={16} /> Kho Phế Liệu<span className="short:hidden"> - Khều Đồ Qua Cửa Sổ</span>
         </div>
         <div className="flex items-center gap-3 text-xs">
           <span
@@ -703,6 +703,8 @@ export default function JunkStorageScene({
         </div>
       </div>
 
+      {/* On phones in landscape this wrapper becomes a row: [← →] [canvas] [THẢ MÓC / Rời Kho] */}
+      <div className="contents short:flex short:flex-row short:items-center short:justify-center short:gap-2 short:w-full">
       <canvas
         ref={canvasRef}
         width={W}
@@ -712,12 +714,12 @@ export default function JunkStorageScene({
           width: `min(100%, 56rem, calc((100vh - 220px) * ${W} / ${H}))`,
           imageRendering: 'pixelated',
         }}
-        className="h-auto max-w-full border-2 border-[#2c423b] rounded shadow-2xl"
+        className="vnlc-junk-canvas h-auto max-w-full border-2 border-[#2c423b] rounded shadow-2xl short:order-2"
       />
 
       {/* Controls (keyboard + on-screen buttons for mobile) */}
-      <div className="w-full max-w-4xl flex items-center justify-between gap-2">
-        <div className="flex gap-2">
+      <div className="w-full max-w-4xl flex items-center justify-between gap-2 short:contents">
+        <div className="flex gap-2 short:order-1 short:flex-col">
           <button
             onPointerDown={() => hold('left', true)}
             onPointerUp={() => hold('left', false)}
@@ -736,12 +738,12 @@ export default function JunkStorageScene({
           </button>
         </div>
 
-        <div className="hidden md:block flex-1 text-[11px] text-slate-400 text-center">
+        <div className="hidden md:block flex-1 text-[11px] text-slate-400 text-center short:!hidden">
           ← → / A D: di chuyển cần tre · SPACE / ↓: thả móc · Móc lệch tâm dễ tuột đồ!
           {log.length > 0 && <div className="text-emerald-300 mt-0.5 truncate">{log.join('   ')}</div>}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 short:order-3 short:flex-col">
           <button
             onPointerDown={() => dropHook()}
             disabled={busy || hud.state !== 'AIM' || attemptsLeft <= 0}
@@ -758,6 +760,7 @@ export default function JunkStorageScene({
             <LogOut size={14} /> Rời Kho
           </button>
         </div>
+      </div>
       </div>
       {attemptsLeft <= 0 && hud.state === 'AIM' && (
         <div className="text-xs text-red-300">

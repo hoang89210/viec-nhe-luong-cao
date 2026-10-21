@@ -1,0 +1,15 @@
+{
+  "name": "Việc Nhẹ Lương Cao",
+  "short_name": "Việc Nhẹ",
+  "description": "Trò chơi cảnh tỉnh: trốn thoát trại lừa đảo việc nhẹ lương cao.",
+  "start_url": "../index.html",
+  "scope": "../",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#020617",
+  "theme_color": "#111816",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}
