@@ -6,11 +6,12 @@
  * "Cảnh báo nạn nhân" option, and a Nghi Ngờ (suspicion) bar.
  * The parent App applies rewards / punishments via onCallEnd.
  */
-import {AlertTriangle, Phone, PhoneCall, PhoneOff, Zap} from 'lucide-react';
+import {AlertTriangle, Mic, MicOff, Phone, PhoneCall, PhoneOff, Zap} from 'lucide-react';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {TELESALES_VICTIMS} from './storyData';
 import {TelesalesChoice} from './gameTypes';
 import {gameAudio} from './utils/helper';
+import {voiceUrl} from './voices';
 
 export type CallResult = 'PASS' | 'FAIL' | 'WARNED';
 
@@ -65,6 +66,8 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
   const dialogue = victim?.dialogues[step];
   const prompt = dialogue?.prompt ?? '';
   const voicePitch = 0.8 + (victimIndex % 5) * 0.12;
+  // 'Giọng đọc' (pre-generated TTS). When off, the old babble blips are used instead.
+  const [voiceOn, setVoiceOn] = useState(() => gameAudio.isVoiceEnabled());
 
   const prepareStep = useCallback((vIdx: number, sIdx: number) => {
     const d = TELESALES_VICTIMS[vIdx].dialogues[sIdx];
@@ -86,6 +89,8 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     setBusy(false);
     setPhase('RINGING');
     prepareStep(idx, 0);
+    gameAudio.stopVoice();
+    gameAudio.preloadVoice(voiceUrl(TELESALES_VICTIMS[idx].id, TELESALES_VICTIMS[idx].dialogues[0].prompt));
     gameAudio.playPhoneRing();
   }, [prepareStep]);
 
@@ -101,6 +106,26 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     return () => clearTimeout(t);
   }, [phase, victimIndex]);
 
+  // Victim speaks the current line (queued after the player's reply, capped so it never stalls)
+  useEffect(() => {
+    if (phase !== 'TALK' || paused || !victim || !dialogue) return;
+    gameAudio.playVoice(voiceUrl(victim.id, dialogue.prompt), {capMs: 7000});
+    dialogue.choices.forEach((ch) => gameAudio.preloadVoice(voiceUrl('player', ch.text)));
+    gameAudio.preloadVoice(voiceUrl('player', dialogue.warning));
+    const nextD = victim.dialogues[step + 1];
+    if (nextD) gameAudio.preloadVoice(voiceUrl(victim.id, nextD.prompt));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, victimIndex, step, paused]);
+
+  // Pause menu: silence; afterwards pick up a toggle change made in the menu
+  useEffect(() => {
+    if (paused) gameAudio.stopVoice();
+    else setVoiceOn(gameAudio.isVoiceEnabled());
+  }, [paused]);
+
+  // Leaving the desk stops any speech
+  useEffect(() => () => gameAudio.stopVoice(), []);
+
   // Typewriter + babble voice
   useEffect(() => {
     if (phase !== 'TALK' || paused) return;
@@ -108,11 +133,11 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     const t = setTimeout(() => {
       const next = Math.min(prompt.length, typed + 1);
       const ch = prompt[typed];
-      if (ch && /[\p{L}\d]/u.test(ch) && typed % 2 === 0) gameAudio.playBabble(voicePitch);
+      if (!voiceOn && ch && /[\p{L}\d]/u.test(ch) && typed % 2 === 0) gameAudio.playBabble(voicePitch);
       setTyped(next);
     }, 26);
     return () => clearTimeout(t);
-  }, [phase, typed, prompt, paused, voicePitch]);
+  }, [phase, typed, prompt, paused, voicePitch, voiceOn]);
 
   const typingDone = typed >= prompt.length;
 
@@ -121,6 +146,7 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
     endedRef.current = true;
     if (kind !== 'PASS') gameAudio.playDialTone();
     else gameAudio.playCoinPickup();
+    gameAudio.cancelQueuedVoice(); // let the last reply finish, drop anything queued
     const summary = propsRef.current.onCallEnd(kind);
     setResult({kind, text: `${text}\n${summary}`});
     setPhase('RESULT');
@@ -133,6 +159,11 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
       return;
     }
     gameAudio.playCrispClick();
+    // Player says the reply (cuts the caller off if they were still talking)
+    gameAudio.playVoice(voiceUrl('player', choice === 'WARN' ? dialogue?.warning ?? '' : choice.text), {
+      interrupt: true,
+      capMs: 7000,
+    });
     if (choice === 'WARN') {
       propsRef.current.onChoice(-20, 15);
       setBusy(true);
@@ -246,9 +277,25 @@ export default function TelesalesScene(props: TelesalesSceneProps) {
             {phase === 'RESULT' ? <PhoneOff size={14} /> : <PhoneCall size={14} className="animate-pulse" />}
             <span>{phase === 'RINGING' ? 'ĐANG GỌI... (098-XXX-XXXX)' : phase === 'RESULT' ? 'CUỘC GỌI ĐÃ KẾT THÚC' : 'ĐANG TRONG CUỘC GỌI'}</span>
           </div>
-          <span className="text-[10px] text-slate-500">
-            Lượt {Math.min(step + 1, victim.dialogues.length)}/{victim.dialogues.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              data-testid="voice-toggle"
+              onClick={() => {
+                const on = !voiceOn;
+                gameAudio.setVoiceEnabled(on);
+                setVoiceOn(on);
+                gameAudio.playCrispClick();
+              }}
+              title="Bật/tắt giọng đọc"
+              className={`flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-bold ${
+                voiceOn ? 'border-emerald-600 text-emerald-300 bg-emerald-950/60' : 'border-slate-600 text-slate-400 bg-slate-900'
+              }`}>
+              {voiceOn ? <Mic size={11} /> : <MicOff size={11} />} Giọng đọc: {voiceOn ? 'Bật' : 'Tắt'}
+            </button>
+            <span className="text-[10px] text-slate-500">
+              Lượt {Math.min(step + 1, victim.dialogues.length)}/{victim.dialogues.length}
+            </span>
+          </div>
         </div>
 
         {phase !== 'RESULT' && (

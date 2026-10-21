@@ -18,3 +18,4 @@ npm run build    # đóng gói ra thư mục dist/
 - `index.html` đặt `window.__PLAYGROUND_PREVIEW__ = true` để dùng Fake Playground SDK (utils/playground-fake.ts) thay vì tải SDK từ máy chủ Google.
 - Ảnh/nhạc nằm trong `assets/`, được copy nguyên vào `dist/assets` khi build (xem vite.config.ts).
 - Màn "Kho Phế Liệu" (khều đồ bằng cần tre) nằm ở `JunkStorageScene.tsx`.
+- Giọng đọc màn Telesales: file mp3 dựng sẵn trong `assets/voice/` (edge-tts, giọng vi-VN-HoaiMyNeural / vi-VN-NamMinhNeural, hiệu ứng điện thoại nướng sẵn bằng ffmpeg). Tên file = `<nhân vật>_<hash FNV-1a của giọng+câu>.mp3` (xem `voices.ts`). Sửa câu thoại trong `storyData.ts` hoặc giọng trong `voices.ts` rồi chạy `pip install edge-tts` + `npm run voices` (`scripts/gen_voices.py`, cần ffmpeg và mạng) để tạo lại; file thừa tự bị xóa.

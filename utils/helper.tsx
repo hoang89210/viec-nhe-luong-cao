@@ -450,6 +450,11 @@ class GameAudio {
 
   setMuted(muted: boolean) {
     this.muted = muted;
+    if (muted) {
+      try {
+        this.voiceSrc?.stop();
+      } catch {}
+    }
     if (this.sfxMaster && this.ctx) {
       this.sfxMaster.gain.setValueAtTime(muted ? 0 : 1, this.ctx.currentTime);
     }
@@ -457,6 +462,112 @@ class GameAudio {
 
   getMuteState(): boolean {
     return this.muted;
+  }
+
+  // --- Voice clips (pre-generated Telesales TTS) -----------------------------
+  // Routed through the SFX bus, so the SFX mute and master volume apply.
+  // Clips play one after another on a chain; a queued clip waits for the
+  // previous one to end, or at most `capMs`, so the game never stalls.
+
+  private voiceOn = (() => {
+    try {
+      return localStorage.getItem('vnlc_voice') !== 'off';
+    } catch {
+      return true;
+    }
+  })();
+  private voiceGain: GainNode | null = null;
+  private voiceSrc: AudioBufferSourceNode | null = null;
+  private voiceGen = 0;
+  private voiceChain: Promise<void> = Promise.resolve();
+  private voiceCache = new Map<string, Promise<AudioBuffer | null>>();
+
+  isVoiceEnabled(): boolean {
+    return this.voiceOn;
+  }
+
+  setVoiceEnabled(on: boolean) {
+    this.voiceOn = on;
+    try {
+      localStorage.setItem('vnlc_voice', on ? 'on' : 'off');
+    } catch {}
+    if (!on) this.stopVoice();
+  }
+
+  private loadVoice(url: string): Promise<AudioBuffer | null> {
+    let p = this.voiceCache.get(url);
+    if (!p) {
+      const ctx = this.ensure();
+      p = !ctx
+        ? Promise.resolve(null)
+        : fetch(url)
+            .then((r) => (r.ok ? r.arrayBuffer() : null))
+            .then((buf) => (buf ? ctx.decodeAudioData(buf) : null))
+            .catch(() => null);
+      this.voiceCache.set(url, p);
+    }
+    return p;
+  }
+
+  /** Warm the cache (fetch + decode) without playing. */
+  preloadVoice(url: string | null) {
+    if (url && this.voiceOn) void this.loadVoice(url);
+  }
+
+  /**
+   * Play a voice clip. interrupt=true cuts whatever is speaking/queued first;
+   * otherwise it queues after the current clip (waiting at most capMs).
+   */
+  playVoice(url: string | null, opts: {interrupt?: boolean; capMs?: number} = {}) {
+    if (!url || !this.voiceOn) return;
+    if (opts.interrupt) this.stopVoice();
+    const gen = this.voiceGen;
+    const cap = opts.capMs ?? 7000;
+    const buffer = this.loadVoice(url);
+    this.voiceChain = this.voiceChain.then(async () => {
+      const buf = await buffer;
+      const ctx = this.ctx;
+      if (gen !== this.voiceGen || !buf || !ctx || !this.sfxMaster || this.muted) return;
+      if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+      if (!this.voiceGain) {
+        this.voiceGain = ctx.createGain();
+        this.voiceGain.gain.value = 1.6;
+        this.voiceGain.connect(this.sfxMaster);
+      }
+      try {
+        this.voiceSrc?.stop();
+      } catch {}
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.voiceGain);
+      this.voiceSrc = src;
+      await new Promise<void>((resolve) => {
+        const t = setTimeout(resolve, Math.min(cap, buf.duration * 1000 + 150));
+        src.onended = () => {
+          clearTimeout(t);
+          resolve();
+        };
+        src.start();
+      });
+    });
+  }
+
+  /** Stop the current clip and drop anything queued. */
+  stopVoice() {
+    this.voiceGen++;
+    try {
+      this.voiceSrc?.stop();
+    } catch {}
+    this.voiceSrc = null;
+    this.voiceChain = Promise.resolve();
+  }
+
+  /** Cancel queued clips but let the current one finish. */
+  cancelQueuedVoice() {
+    const cur = this.voiceSrc;
+    this.voiceGen++;
+    this.voiceChain = Promise.resolve();
+    this.voiceSrc = cur;
   }
 
   // --- Synthesis helpers -----------------------------------------------------

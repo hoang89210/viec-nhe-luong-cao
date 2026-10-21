@@ -999,6 +999,10 @@ export default function App() {
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
   const [isMusicMuted, setIsMusicMuted] = useState(false);
+  const [isVoiceOn, setIsVoiceOn] = useState(() => gameAudio.isVoiceEnabled());
+  useEffect(() => {
+    if (isGameMenuOpen) setIsVoiceOn(gameAudio.isVoiceEnabled());
+  }, [isGameMenuOpen]);
   const [isSfxMuted, setIsSfxMuted] = useState(false);
   const [endingType, setEndingType] = useState<EndingType | null>(null);
 
@@ -3646,6 +3650,19 @@ export default function App() {
                 Âm Thanh (SFX): {isSfxMuted ? 'Tắt' : 'Bật'}
               </button>
 
+              {/* Voice (Telesales TTS) Toggle */}
+              <button
+                data-testid="menu-voice-toggle"
+                onClick={() => {
+                  const on = !isVoiceOn;
+                  gameAudio.setVoiceEnabled(on);
+                  setIsVoiceOn(on);
+                }}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg font-bold text-xs flex items-center justify-center gap-2">
+                {isVoiceOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                Giọng Đọc (Telesales): {isVoiceOn ? 'Bật' : 'Tắt'}
+              </button>
+
               {/* Music Toggle */}
               <button
                 onClick={() => {
@@ -3719,7 +3736,7 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">2. Ca Làm Việc Telesales (Ban Ngày):</strong>
                 <p>
-                  Mỗi ngày phải gọi đủ {DAILY_QUOTA} cuộc (phím 1-3 chọn câu trả lời). Mỗi cuộc 4-5 lượt; Nghi Ngờ chạm 95% là nạn nhân cúp máy. Mỗi cuộc tốn 10 Thể Lực. Đạt: +$220 hoa hồng vào Tiền, +1 Phiếu Cơm, +Lòng Tin; trượt: -10 Tinh Thần. Trượt 3 cuộc liên tiếp sẽ bị chích điện (-30 Thể Lực, -25 Tinh Thần). Thỉnh thoảng hiện lựa chọn ẩn "Cảnh báo nạn nhân" (phím 4): +Lương Tâm nhưng có thể bị quản lý phát hiện. Chưa xong KPI thì không được về ngủ.
+                  Mỗi ngày phải gọi đủ {DAILY_QUOTA} cuộc (phím 1-3 chọn câu trả lời). Mỗi cuộc 4-5 lượt; Nghi Ngờ chạm 95% là nạn nhân cúp máy. Mỗi cuộc tốn 10 Thể Lực. Đạt: +$220 hoa hồng vào Tiền, +1 Phiếu Cơm, +Lòng Tin; trượt: -10 Tinh Thần. Trượt 3 cuộc liên tiếp sẽ bị chích điện (-30 Thể Lực, -25 Tinh Thần). Thỉnh thoảng hiện lựa chọn ẩn "Cảnh báo nạn nhân" (phím 4): +Lương Tâm nhưng có thể bị quản lý phát hiện. Chưa xong KPI thì không được về ngủ. Cuộc gọi có giọng đọc thật (nạn nhân qua loa điện thoại, bạn đọc câu mình chọn); bật/tắt "Giọng đọc" ngay tại bàn gọi hoặc trong Menu, tắt Âm Thanh (SFX) cũng tắt giọng.
                 </p>
               </div>
 
