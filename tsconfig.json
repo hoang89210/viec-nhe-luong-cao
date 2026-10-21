@@ -18,5 +18,6 @@
     "noEmit": true,                       /* dry-run type check, do not write files to disk */
     "jsx": "react-jsx"                    /* Enable modern React JSX transform */
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist", "vite.config.ts"]
 }

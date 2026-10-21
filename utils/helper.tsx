@@ -566,6 +566,23 @@ class GameAudio {
   }
 
   // INSERT_SFX_HERE
+  /** Metallic clank (junk hitting junk / hook catching). */
+  playClank() {
+    const b = this.begin();
+    if (!b) return;
+    const v = this.vary(0.1);
+    this.noiseBurst(b, b.now, { dur: 0.08, gain: 0.12, from: 4000 * v, to: 1500 * v });
+    this.blip(b, b.now, { type: 'square', freq: 420 * v, freqTo: 380 * v, dur: 0.12, gain: 0.05 });
+    this.blip(b, b.now + 0.01, { type: 'triangle', freq: 1130 * v, dur: 0.18, gain: 0.05 });
+  }
+
+  /** Soft whoosh (pole swinging down / item slipping). */
+  playWhoosh() {
+    const b = this.begin();
+    if (!b) return;
+    const v = this.vary(0.1);
+    this.noiseBurst(b, b.now, { dur: 0.28, gain: 0.07, from: 600 * v, to: 2400 * v });
+  }
   playCrispClick() {
     const b = this.begin();
     if (!b) return;

@@ -40,6 +40,7 @@ import {
   TelesalesChoice,
   TelesalesVictim,
 } from './gameTypes';
+import JunkStorageScene, {QUEST_ITEM_INFO, QuestItemId} from './JunkStorageScene';
 import {SpriteActionConfig, SpriteAnimationState, SpriteRenderer} from './SpriteRenderer';
 import BackgroundMusic from './utils/BackgroundMusic';
 import {
@@ -777,6 +778,9 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stepperRef = useRef<ReturnType<typeof createFixedStepper>>();
   const lastCancelRef = useRef(false);
+  // Separate edge-detector for the interact key (sharing lastCancelRef made a held
+  // Space/A re-trigger interactions every frame, e.g. toggling day/night repeatedly).
+  const lastConfirmRef = useRef(false);
   const isMobile = useIsMobile();
 
   // Playground SDK Integration
@@ -826,6 +830,10 @@ export default function App() {
     flashlight: false,
     torn_map: false,
   });
+
+  // Kho Phế Liệu (junk storage hook mini-game): 5 drops per night
+  const JUNK_ATTEMPTS_PER_NIGHT = 5;
+  const [junkAttemptsLeft, setJunkAttemptsLeft] = useState(JUNK_ATTEMPTS_PER_NIGHT);
 
   // Overlays & UI
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
@@ -991,8 +999,8 @@ export default function App() {
       y: 230,
       width: 50,
       height: 60,
-      label: 'Kho Phế Liệu (Tìm Kìm Cắt Thép)',
-      action: 'LOCKER',
+      label: 'Kho Phế Liệu (Ban đêm: Khều đồ)',
+      action: 'JUNK_STORAGE',
     },
     {
       id: 'fence_breach',
@@ -1126,6 +1134,7 @@ export default function App() {
     setConscience(60);
     setCallsLeftToday(4);
     setInventory({wire_cutters: false, flashlight: false, torn_map: false});
+    setJunkAttemptsLeft(JUNK_ATTEMPTS_PER_NIGHT);
     setEndingType(null);
     setIsGameMenuOpen(false);
     setIsHowToPlayOpen(false);
@@ -1186,9 +1195,10 @@ export default function App() {
           return;
         }
         setSceneMode('TELESALES');
-        setCurrentVictimIndex(Math.floor(Math.random() * TELESALES_VICTIMS.length));
+        const victimIdx = Math.floor(Math.random() * TELESALES_VICTIMS.length);
+        setCurrentVictimIndex(victimIdx);
         setCurrentStepIndex(0);
-        setVictimSuspicion(TELESALES_VICTIMS[0].initialSuspicion);
+        setVictimSuspicion(TELESALES_VICTIMS[victimIdx].initialSuspicion);
         setTelesalesFeedback('');
         setTelesalesPendingAction(false);
       } else if (nearby.action === 'CANTEEN') {
@@ -1197,6 +1207,7 @@ export default function App() {
         // Toggle Day / Night or Sleep
         if (!isNight) {
           setIsNight(true);
+          setJunkAttemptsLeft(JUNK_ATTEMPTS_PER_NIGHT);
           setStamina((prev) => Math.min(100, prev + 15));
           showToast('Đêm buông xuống. Bảo vệ bắt đầu bật đèn pin tuần tra. Hãy cẩn thận khi lén lút tìm đồ!');
         } else {
@@ -1215,25 +1226,33 @@ export default function App() {
             setInventory((prev) => ({...prev, flashlight: true}));
             gameAudio.playCoinPickup();
             showToast('Tìm thấy [Đèn Pin Bỏ Túi] giấu dưới nệm! (Tăng tầm nhìn trong đêm)');
-          } else if (!inventory.torn_map) {
-            setInventory((prev) => ({...prev, torn_map: true}));
-            gameAudio.playCoinPickup();
-            showToast('Tìm thấy [Bản Đồ Rách]! Đã phát hiện vị trí rào chắn lỏng lẻo ở phía Đông.');
+          } else if (!inventory.torn_map || !inventory.wire_cutters) {
+            showToast('Tủ đồ chỉ còn quần áo cũ. Nghe đồn [Bản Đồ Rách] và [Kìm Cắt Dây Thép] bị vứt trong Kho Phế Liệu ngoài sân...');
           } else {
             showToast('Tủ đồ này không còn vật dụng gì giá trị.');
           }
-        } else if (nearby.id === 'locker_yard') {
-          if (!inventory.wire_cutters) {
-            setInventory((prev) => ({...prev, wire_cutters: true}));
-            gameAudio.playCoinPickup();
-            showToast('Nhặt được [Kìm Cắt Dây Thép] trong thùng phế liệu! Đã có thể cắt hàng rào thép gai!');
-          } else {
-            showToast('Thùng phế liệu đã trống rỗng.');
-          }
+        }
+      } else if (nearby.action === 'JUNK_STORAGE') {
+        if (!isNight) {
+          showToast('Ban ngày kho phế liệu có người canh. Hãy quay lại vào BAN ĐÊM để lén khều đồ qua cửa sổ!');
+        } else if (inventory.flashlight && inventory.torn_map && inventory.wire_cutters) {
+          showToast('Bạn đã có đủ đồ thoát thân. Trong kho chỉ còn rác vô dụng.');
+        } else if (junkAttemptsLeft <= 0) {
+          showToast('Đêm nay bạn đã khều hết 5 lượt. Lính gác sắp đi tuần tới, quay lại đêm mai!');
+        } else {
+          setSceneMode('JUNK_STORAGE');
+          gameAudio.playConfirmSelect();
+          showToast('Kho Phế Liệu: dùng cần tre có móc khều đồ qua cửa sổ. Có 60 giây trước khi lính gác đi tuần tới!');
         }
       } else if (nearby.action === 'FENCE') {
-        if (!inventory.wire_cutters) {
-          showToast('Hàng rào dây thép gai kiên cố! Bạn cần [Kìm Cắt Dây Thép] mới có thể phá rào.');
+        if (!inventory.wire_cutters || !inventory.torn_map) {
+          const missing = [
+            !inventory.wire_cutters ? '[Kìm Cắt Dây Thép]' : null,
+            !inventory.torn_map ? '[Bản Đồ Rách]' : null,
+          ]
+            .filter(Boolean)
+            .join(' và ');
+          showToast(`Hàng rào dây thép gai kiên cố! Bạn cần ${missing} (tìm trong Kho Phế Liệu ban đêm) mới có thể phá rào.`);
         } else {
           // Trigger fence escape maze!
           setSceneMode('ESCAPE_MAZE');
@@ -1253,6 +1272,7 @@ export default function App() {
     isNight,
     dayNumber,
     inventory,
+    junkAttemptsLeft,
   ]);
 
   // Handle Telesales Dialogue Choice selection
@@ -1388,11 +1408,11 @@ export default function App() {
     if (input.actions.down || mInput.down) moveY += 1;
 
     // Check interaction trigger
-    if ((input.actions.confirm || mInput.interact) && !lastCancelRef.current) {
+    if ((input.actions.confirm || mInput.interact) && !lastConfirmRef.current) {
       handleInteraction();
-      lastCancelRef.current = true;
+      lastConfirmRef.current = true;
     } else if (!input.actions.confirm && !mInput.interact) {
-      lastCancelRef.current = false;
+      lastConfirmRef.current = false;
     }
 
     // 1. UPDATE OVERWORLD FREE-ROAMING
@@ -1735,11 +1755,11 @@ export default function App() {
 
       // Breached East fence section (Visual highlight for escape point)
       ctx.save();
-      ctx.strokeStyle = inventory.wire_cutters ? '#22c55e' : '#f59e0b';
+      ctx.strokeStyle = inventory.wire_cutters && inventory.torn_map ? '#22c55e' : '#f59e0b';
       ctx.lineWidth = 2.5;
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(canvasWidth - 55, 350, 35, 80);
-      ctx.fillStyle = inventory.wire_cutters ? 'rgba(34, 197, 94, 0.2)' : 'rgba(245, 158, 11, 0.15)';
+      ctx.fillStyle = inventory.wire_cutters && inventory.torn_map ? 'rgba(34, 197, 94, 0.2)' : 'rgba(245, 158, 11, 0.15)';
       ctx.fillRect(canvasWidth - 55, 350, 35, 80);
       ctx.restore();
 
@@ -2434,6 +2454,38 @@ export default function App() {
         )}
 
         {/* Active Scene: Canteen Food Purchase */}
+        {/* Active Scene: Kho Phế Liệu hook-and-pull mini-game */}
+        {sceneMode === 'JUNK_STORAGE' && (
+          <JunkStorageScene
+            assets={assets}
+            inventory={inventory}
+            attemptsLeft={junkAttemptsLeft}
+            paused={isGameMenuOpen || isHowToPlayOpen || gameState.status !== 'PLAYING'}
+            onAttemptUsed={() => setJunkAttemptsLeft((n) => Math.max(0, n - 1))}
+            onQuestItem={(id: QuestItemId) => {
+              setInventory((prev) => ({...prev, [id]: true}));
+              setGameState((prev) => ({...prev, score: prev.score + 200}));
+              const hints: Record<QuestItemId, string> = {
+                flashlight: 'Tăng tầm nhìn trong đêm.',
+                torn_map: 'Đã thấy vị trí rào chắn lỏng lẻo ở phía Đông.',
+                wire_cutters: 'Có thể cắt hàng rào thép gai!',
+              };
+              showToast(`Khều được [${QUEST_ITEM_INFO[id].name}]! ${hints[id]}`);
+            }}
+            onJunk={(name: string) => showToast(`Khều lên được ${name}... chẳng dùng được gì.`)}
+            onCaught={() => {
+              gameAudio.playErrorBuzz();
+              setMorale((prev) => Math.max(0, prev - 15));
+              setScreenShake(10);
+              setSceneMode('OVERWORLD');
+              playerRef.current.x = 200;
+              playerRef.current.y = 350;
+              showToast('Hết giờ! Đèn pin lính gác quét qua cửa sổ kho, bạn hoảng hốt chạy về ký túc xá. -15 Tinh Thần.');
+            }}
+            onExit={() => setSceneMode('OVERWORLD')}
+          />
+        )}
+
         {sceneMode === 'CANTEEN' && (
           <div className="absolute inset-0 z-30 bg-[#0d1412] flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-lg bg-[#15221e] border-2 border-[#2c423b] rounded-xl p-6 shadow-2xl">
@@ -2709,6 +2761,8 @@ export default function App() {
               <button
                 onPointerDown={() => {
                   mobileInputRef.current.interact = true;
+                  // mark the edge as consumed so the update loop doesn't fire it a 2nd time
+                  lastConfirmRef.current = true;
                   handleInteraction();
                 }}
                 onPointerUp={() => {
@@ -2842,7 +2896,7 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">4. Lén Lút & Vượt Ngục (Ban Đêm):</strong>
                 <p>
-                  Ban đêm lính gác tuần tra với nón ánh sáng đèn pin. Hãy lén lút tìm Đèn Pin trong ký túc xá và Kìm Cắt Thép ở bãi phế liệu ngoài sân. Khi đã có kìm, tiếp cận hàng rào phía Đông để bắt đầu màn chạy trốn 90 giây vượt rào!
+                  Ban đêm lính gác tuần tra với nón ánh sáng đèn pin. Hãy lén lút tìm Đèn Pin trong tủ đồ ký túc xá, rồi ra Kho Phế Liệu ngoài sân dùng cần tre khều [Bản Đồ Rách] và [Kìm Cắt Dây Thép] qua cửa sổ (60 giây, 5 lượt mỗi đêm, móc lệch tâm dễ tuột đồ). Khi đã có kìm và bản đồ, tiếp cận hàng rào phía Đông để bắt đầu màn chạy trốn 90 giây vượt rào!
                 </p>
               </div>
 

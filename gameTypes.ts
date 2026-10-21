@@ -1,5 +1,12 @@
 export type DayPhase = 'DAY' | 'NIGHT';
-export type SceneMode = 'OVERWORLD' | 'TELESALES' | 'CANTEEN' | 'ESCAPE_MAZE' | 'ENDING' | 'AWARENESS';
+export type SceneMode =
+  | 'OVERWORLD'
+  | 'TELESALES'
+  | 'CANTEEN'
+  | 'JUNK_STORAGE'
+  | 'ESCAPE_MAZE'
+  | 'ENDING'
+  | 'AWARENESS';
 
 export interface TelesalesChoice {
   text: string;
@@ -50,7 +57,7 @@ export interface OverworldInteractable {
   width: number;
   height: number;
   label: string;
-  action: 'DESK' | 'CANTEEN' | 'BED' | 'LOCKER' | 'FENCE' | 'AWARENESS';
+  action: 'DESK' | 'CANTEEN' | 'BED' | 'LOCKER' | 'JUNK_STORAGE' | 'FENCE' | 'AWARENESS';
 }
 
 export interface FoodItem {
