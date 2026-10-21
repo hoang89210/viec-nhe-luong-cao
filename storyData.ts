@@ -369,6 +369,8 @@ export interface DailyEventView {
   title: string;
   text: string;
   tone: 'bad' | 'neutral' | 'good';
+  /** Morning living-fee line shown on the card. */
+  fee?: string;
 }
 
 /** Warning signs shown after every ending. */

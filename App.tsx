@@ -817,8 +817,10 @@ const DAILY_EVENT_ART: Record<DailyEventView['id'], string> = {
   QUIET: 'event_quiet',
 };
 const NIGHT_ACTIONS = 3; // roommate actions per night
-const PASS_MONEY = 40;
-const PASS_RANSOM = 600;
+const PASS_MONEY = 220; // hoa hồng mỗi cuộc đạt (vào Tiền; tự nộp Quỹ Chuộc Thân ở căn tin)
+const LIVING_FEE = 100; // phí ăn ở trừ mỗi sáng
+const STARTING_MONEY = 50;
+const CALL_STAMINA_COST = 10;
 const SAVE_KEY = 'vnlc_save_v1';
 
 type EndingType = 'ESCAPE' | 'RANSOM' | 'OVERSEER' | 'COLLAPSE' | 'RESCUE' | 'WHISTLEBLOWER' | 'SOLD';
@@ -1280,7 +1282,7 @@ export default function App() {
 
   // Trigger electric shock punishment (loud zap, violent shake, red flash + glitch)
   const triggerElectricShock = useCallback(
-    (reason: string, damage = 20) => {
+    (reason: string, staminaDmg = 30, moraleDmg = 25) => {
       gameAudio.playZap();
       gameAudio.playErrorBuzz();
       setScreenShake(18);
@@ -1289,10 +1291,10 @@ export default function App() {
       setTimeout(() => setIsGlitching(false), 600);
       setTimeout(() => setShockFx(false), 900);
 
-      setStamina((prev) => Math.max(0, prev - damage));
-      setMorale((prev) => Math.max(0, prev - damage));
+      setStamina((prev) => Math.max(0, prev - staminaDmg));
+      setMorale((prev) => Math.max(0, prev - moraleDmg));
       setManagerTrust((prev) => Math.max(0, prev - 10));
-      showToast(`ZZZT! HÌNH PHẠT CHÍCH ĐIỆN (-${damage} Thể Lực, -${damage} Tinh Thần): ${reason}`);
+      showToast(`ZZZT! HÌNH PHẠT CHÍCH ĐIỆN (-${staminaDmg} Thể Lực, -${moraleDmg} Tinh Thần): ${reason}`);
     },
     [showToast],
   );
@@ -1320,7 +1322,7 @@ export default function App() {
       setIsNight(save ? save.isNight : false);
       setStamina(save ? save.stamina : (getConfig('startingStamina') as number));
       setMorale(save ? save.morale : (getConfig('startingMorale') as number));
-      setMoney(save ? save.money : 15);
+      setMoney(save ? save.money : STARTING_MONEY);
       setRansomFund(save ? save.ransomFund : 0);
       setManagerTrust(save ? save.managerTrust : 50);
       setConscience(save ? save.conscience : 60);
@@ -1450,9 +1452,21 @@ export default function App() {
     const yesterdayPasses = passesToday;
     setIsNight(false);
     setDayNumber(newDay);
-    setStamina((prev) => Math.min(100, prev + 35));
+    setStamina((prev) => Math.min(100, prev + 20));
     setMorale((prev) => Math.min(100, prev + 15));
     setPassesToday(0);
+    // Daily living fee; shortfall goes onto the debt
+    let cash = money;
+    let feeNote: string;
+    if (cash >= LIVING_FEE) {
+      cash -= LIVING_FEE;
+      feeNote = `Phí ăn ở: -$${LIVING_FEE}.`;
+    } else {
+      const short = LIVING_FEE - cash;
+      cash = 0;
+      setExtraDebt((d) => d + short);
+      feeNote = `Phí ăn ở $${LIVING_FEE}: không đủ tiền, $${short} bị cộng vào nợ!`;
+    }
     setWarnedToday(0);
     setNightActionsLeft(NIGHT_ACTIONS);
     setRoommateLog([]);
@@ -1526,12 +1540,12 @@ export default function App() {
           tone: 'bad',
         };
       } else {
-        const taken = Math.floor(money / 2);
-        setMoney((prev) => prev - taken);
+        const taken = Math.floor(cash / 2);
+        cash -= taken;
         ev = {
           id: 'INSPECTION',
           title: 'Khám điện thoại & tư trang!',
-          text: `Lính gác kiểm tra điện thoại và túi đồ của từng người, "thu phí giữ hộ" $${taken}.`,
+          text: `Lính gác kiểm tra điện thoại và túi đồ của từng người, "thu phí giữ hộ" một nửa tiền mặt: -$${taken}. (Tiền đã nộp vào Quỹ Chuộc Thân thì không bị lấy.)`,
           tone: 'bad',
         };
       }
@@ -1554,10 +1568,11 @@ export default function App() {
         tone: 'neutral',
       };
     }
+    setMoney(cash);
     setCallsLeftToday(quota);
     setTodayQuota(quota);
-    setDailyEvent(ev);
-    showToast(`Trời sáng: Ngày ${newDay}/${MAX_DAYS}. KPI hôm nay: ${quota} cuộc.`);
+    setDailyEvent({...ev, fee: feeNote});
+    showToast(`Trời sáng: Ngày ${newDay}/${MAX_DAYS}. ${feeNote} KPI hôm nay: ${quota} cuộc.`);
   };
 
   // ---------------------------------------------------------------------------
@@ -1575,29 +1590,25 @@ export default function App() {
       if (left === 0) showToast('Đã gọi đủ KPI hôm nay! Ghé căn tin rồi về giường ngủ để sang đêm.');
       return left;
     });
-    setStamina((prev) => Math.max(0, prev - 8));
+    setStamina((prev) => Math.max(0, prev - CALL_STAMINA_COST));
 
     if (result === 'PASS') {
       setMorale((prev) => Math.max(0, prev - 2));
       setMoney((prev) => prev + PASS_MONEY);
-      setRansomFund((prev) => prev + PASS_RANSOM);
       setMealTickets((prev) => prev + 1);
       setManagerTrust((prev) => Math.min(100, prev + 5));
       setConscience((prev) => Math.max(0, prev - 3));
       setPassesToday((prev) => prev + 1);
       setFailStreak(0);
       setGameState((prev) => ({...prev, score: prev.score + 500}));
-      const target = (getConfig('targetRansom') as number) + st.extraDebt;
-      if (st.ransomFund + PASS_RANSOM >= target) {
-        setTimeout(() => triggerEnding('RANSOM'), 1500);
-      } else if (st.managerTrust + 5 >= 90 && st.conscience - 3 <= 10) {
+      if (st.managerTrust + 5 >= 90 && st.conscience - 3 <= 10) {
         setTimeout(() => triggerEnding('OVERSEER'), 1500);
       }
-      return `+$${PASS_MONEY} Tiền · +$${PASS_RANSOM} Quỹ Chuộc Thân · +1 Phiếu Cơm · +5 Lòng Tin · -3 Lương Tâm`;
+      return `+$${PASS_MONEY} hoa hồng (vào Tiền, nhớ nộp Quỹ ở căn tin) · +1 Phiếu Cơm · +5 Lòng Tin · -3 Lương Tâm · -${CALL_STAMINA_COST} Thể Lực`;
     }
 
     if (result === 'FAIL') {
-      setMorale((prev) => Math.max(0, prev - 8));
+      setMorale((prev) => Math.max(0, prev - 10));
       setManagerTrust((prev) => Math.max(0, prev - 5));
       const streak = st.failStreak + 1;
       if (streak >= 3) {
@@ -1606,7 +1617,7 @@ export default function App() {
         return 'TRƯỢT 3 CUỘC LIÊN TIẾP! Quản lý Hùng xách dùi cui điện tới bàn bạn...';
       }
       setFailStreak(streak);
-      return `Trượt liên tiếp: ${streak}/3. Trượt thêm ${3 - streak} cuộc nữa là bị chích điện! (-5 Lòng Tin)`;
+      return `Trượt liên tiếp: ${streak}/3. Trượt thêm ${3 - streak} cuộc nữa là bị chích điện! (-10 Tinh Thần, -5 Lòng Tin)`;
     }
 
     // WARNED
@@ -1614,7 +1625,7 @@ export default function App() {
     setWarnedToday((prev) => prev + 1);
     const caughtChance = Math.min(0.5, Math.max(0.1, 0.45 - st.managerTrust / 200)) + 0.08 * st.warnedToday;
     if (Math.random() < caughtChance) {
-      setTimeout(() => triggerElectricShock('Quản lý Hùng nghe thấy bạn cảnh báo nạn nhân!', 15), 350);
+      setTimeout(() => triggerElectricShock('Quản lý Hùng nghe thấy bạn cảnh báo nạn nhân!', 20, 15), 350);
       return 'BỊ PHÁT HIỆN! Quản lý Hùng đứng ngay sau lưng bạn từ lúc nào...';
     }
     const n = st.warningsUncaught + 1;
@@ -1815,7 +1826,6 @@ export default function App() {
           setIsNight(true);
           setJunkAttemptsLeft(JUNK_ATTEMPTS_PER_NIGHT);
           setNightActionsLeft(NIGHT_ACTIONS);
-          setStamina((prev) => Math.min(100, prev + 15));
           showToast(
             outageTonight
               ? 'Đêm mất điện! Đèn pha tắt, lính gác nhìn kém hẳn. Tranh thủ nói chuyện với bạn cùng phòng hoặc lén tìm đồ!'
@@ -1879,14 +1889,14 @@ export default function App() {
     outageTonight,
   ]);
 
-  // Redeem a phiếu cơm (earned from successful calls) for a free plate of cơm thịt
+  // Redeem a phiếu cơm (earned from successful calls) for a free plate of cơm trắng
   const handleUseMealTicket = () => {
     if (mealTickets <= 0) {
       gameAudio.playErrorBuzz();
       showToast('Bạn không có phiếu cơm. Gọi điện đạt KPI để được thưởng phiếu.');
       return;
     }
-    const food = FOOD_MENU[0];
+    const food = FOOD_MENU.find((f) => f.id === 'white_rice')!; // phiếu chỉ đổi được Cơm Trắng
     gameAudio.playCoinPickup();
     setMealTickets((n) => n - 1);
     setStamina((prev) => Math.min(100, prev + food.staminaRestore));
@@ -1907,6 +1917,27 @@ export default function App() {
     setStamina((prev) => Math.min(100, prev + food.staminaRestore));
     setMorale((prev) => Math.min(100, prev + food.moraleRestore));
     showToast(`Đã dùng bữa: +${food.staminaRestore} Thể Lực, +${food.moraleRestore} Tinh Thần.`);
+  };
+
+  // Deposit cash into the ransom fund (Quỹ Chuộc Thân). RANSOM ending once fund >= debt.
+  const handleDeposit = (amount: number | 'ALL') => {
+    const amt = amount === 'ALL' ? money : Math.min(amount, money);
+    if (amt <= 0) {
+      gameAudio.playErrorBuzz();
+      showToast('Không có tiền mặt để nộp. Gọi điện đạt KPI để nhận hoa hồng.');
+      return;
+    }
+    const newFund = ransomFund + amt;
+    const target = (getConfig('targetRansom') as number) + extraDebt;
+    gameAudio.playCoinPickup();
+    setMoney((prev) => prev - amt);
+    setRansomFund(newFund);
+    if (newFund >= target) {
+      showToast(`Nộp $${amt}. Quỹ Chuộc Thân đã đủ $${newFund}/${target}!`);
+      setTimeout(() => triggerEnding('RANSOM'), 1200);
+    } else {
+      showToast(`Đã nộp $${amt} vào Quỹ Chuộc Thân: $${newFund}/${target} (còn thiếu $${target - newFund}).`);
+    }
   };
 
   // Simulation time accumulator for dynamic searchlights and lighting effects
@@ -3196,8 +3227,8 @@ export default function App() {
         )}
 
         {sceneMode === 'CANTEEN' && (
-          <div className="absolute inset-0 z-30 bg-[#0d1412] flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-[#15221e] border-2 border-[#2c423b] rounded-xl p-6 shadow-2xl">
+          <div className="absolute inset-0 z-30 bg-[#0d1412] flex flex-col items-center justify-center p-4 overflow-y-auto">
+            <div className="w-full max-w-lg bg-[#15221e] border-2 border-[#2c423b] rounded-xl p-5 shadow-2xl my-auto">
               <div className="flex items-center justify-between border-b border-[#2c423b] pb-3 mb-4">
                 <div className="flex items-center gap-2 text-emerald-400 font-bold">
                   <Utensils size={18} /> Căn Tin Khu Trại
@@ -3208,15 +3239,36 @@ export default function App() {
               </div>
 
               <p className="text-xs text-slate-300 mb-4">
-                Dùng tiền hoa hồng kiếm được để mua thực phẩm hồi phục Thể Lực và Tinh Thần.
+                Dùng tiền hoa hồng kiếm được để mua thực phẩm hồi phục Thể Lực và Tinh Thần. Mỗi sáng bị trừ ${LIVING_FEE} phí ăn ở.
               </p>
+
+              <div data-testid="deposit-panel" className="mb-4 bg-[#101c18] border border-emerald-800 rounded-lg p-3">
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="font-bold text-emerald-300">Nộp Quỹ Chuộc Thân (quầy kế toán)</span>
+                  <span className="text-slate-300">
+                    Quỹ: <strong className="text-emerald-300">${ransomFund}</strong> / ${ransomTarget}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {([100, 500, 'ALL'] as const).map((a) => (
+                    <button
+                      key={String(a)}
+                      onClick={() => handleDeposit(a)}
+                      disabled={money <= 0}
+                      className="py-2 bg-emerald-900 hover:bg-emerald-800 border border-emerald-600 rounded font-bold text-xs text-emerald-100 disabled:opacity-40">
+                      {a === 'ALL' ? `Nộp hết ($${money})` : `Nộp $${a}`}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-2">Tiền đã nộp không bị lính gác "thu phí giữ hộ" khi khám phòng. Đủ ${ransomTarget} là được chuộc thân.</div>
+              </div>
 
               <button
                 onClick={handleUseMealTicket}
                 disabled={mealTickets <= 0}
                 className="w-full mb-3 flex items-center justify-between bg-[#1d1a10] border border-amber-700 p-3 rounded-lg hover:border-amber-500 disabled:opacity-40">
                 <span className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                  <Utensils size={16} /> Đổi Phiếu Cơm → Dĩa Cơm Thịt (miễn phí)
+                  <Utensils size={16} /> Đổi Phiếu Cơm → Cơm Trắng (miễn phí)
                 </span>
                 <span className="text-xs text-amber-200">Còn {mealTickets} phiếu</span>
               </button>
@@ -3645,14 +3697,14 @@ export default function App() {
               <div>
                 <strong className="text-emerald-400">2. Ca Làm Việc Telesales (Ban Ngày):</strong>
                 <p>
-                  Mỗi ngày phải gọi đủ {DAILY_QUOTA} cuộc (phím 1-3 chọn câu trả lời). Mỗi cuộc 4-5 lượt; Nghi Ngờ chạm 95% là nạn nhân cúp máy. Đạt: +Tiền, +Quỹ Chuộc Thân, +Phiếu Cơm, +Lòng Tin. Trượt 3 cuộc liên tiếp sẽ bị chích điện. Thỉnh thoảng hiện lựa chọn ẩn "Cảnh báo nạn nhân" (phím 4): +Lương Tâm nhưng có thể bị quản lý phát hiện. Chưa xong KPI thì không được về ngủ.
+                  Mỗi ngày phải gọi đủ {DAILY_QUOTA} cuộc (phím 1-3 chọn câu trả lời). Mỗi cuộc 4-5 lượt; Nghi Ngờ chạm 95% là nạn nhân cúp máy. Mỗi cuộc tốn 10 Thể Lực. Đạt: +$220 hoa hồng vào Tiền, +1 Phiếu Cơm, +Lòng Tin; trượt: -10 Tinh Thần. Trượt 3 cuộc liên tiếp sẽ bị chích điện (-30 Thể Lực, -25 Tinh Thần). Thỉnh thoảng hiện lựa chọn ẩn "Cảnh báo nạn nhân" (phím 4): +Lương Tâm nhưng có thể bị quản lý phát hiện. Chưa xong KPI thì không được về ngủ.
                 </p>
               </div>
 
               <div>
                 <strong className="text-emerald-400">3. Căn Tin & Năng Lượng:</strong>
                 <p>
-                  Dùng tiền hoặc Phiếu Cơm để mua cơm thịt, mì gói, cơm trắng hồi phục Thể Lực và Tinh Thần. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã! Ban đêm, ghé "Bạn Cùng Phòng" trong ký túc xá để trò chuyện / chia đồ ăn (3 lượt mỗi đêm): Chị Hoa thân thiết sẽ tiết lộ lịch gác, Bảo sửa được điện thoại cũ, còn Tuấn đói quá có thể phản bội bạn. Mỗi sáng có thể xảy ra sự kiện ngẫu nhiên (khám phòng, mất điện, người mới, bạn cùng phòng bị "bán"). Game tự lưu, có thể Tiếp Tục ở màn hình chính.
+                  Căn tin: Cơm Trắng $30 (+10 Thể Lực), Mì Gói $60 (+20/+5), Cơm Thịt $150 (+35/+10); Phiếu Cơm chỉ đổi được Cơm Trắng. Mỗi sáng bị trừ $100 phí ăn ở (thiếu thì cộng vào nợ); ngủ dậy chỉ hồi +20 Thể Lực. Tiền không tự vào Quỹ Chuộc Thân: hãy nộp ở quầy trong căn tin ($100/$500/Nộp hết), quỹ đủ 15.000 + nợ phát sinh là được chuộc thân. Tiền mặt trong túi có thể bị lính gác lấy một nửa khi khám phòng. Nếu Thể Lực hoặc Tinh Thần chạm mốc 0, bạn sẽ gục ngã! Ban đêm, ghé "Bạn Cùng Phòng" trong ký túc xá để trò chuyện / chia đồ ăn (3 lượt mỗi đêm): Chị Hoa thân thiết sẽ tiết lộ lịch gác, Bảo sửa được điện thoại cũ, còn Tuấn đói quá có thể phản bội bạn. Mỗi sáng có thể xảy ra sự kiện ngẫu nhiên (khám phòng, mất điện, người mới, bạn cùng phòng bị "bán"). Game tự lưu, có thể Tiếp Tục ở màn hình chính.
                 </p>
               </div>
 
@@ -3712,7 +3764,12 @@ export default function App() {
               }`}>
               {dailyEvent.title}
             </h3>
-            <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line mb-4">{dailyEvent.text}</p>
+            <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line mb-3">{dailyEvent.text}</p>
+            {dailyEvent.fee && (
+              <div data-testid="living-fee" className="text-[11px] mb-4 px-2 py-1.5 rounded bg-black/30 border border-slate-700 text-amber-200">
+                {dailyEvent.fee} Tiền còn lại: ${money} · Quỹ: ${ransomFund}/{ransomTarget}
+              </div>
+            )}
             <button
               onClick={() => {
                 gameAudio.playCrispClick();

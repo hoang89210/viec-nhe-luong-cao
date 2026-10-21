@@ -39,7 +39,7 @@ export interface RoommatesSceneProps {
   assets: Record<string, HTMLImageElement | null | undefined>;
 }
 
-export const SHARE_FOOD_PRICE = 6;
+export const SHARE_FOOD_PRICE = 30; // = giá Cơm Trắng
 
 /** Wall calendar with crossed-off days, drawn over the paper calendar asset. */
 export function WallCalendar({day, maxDays, paper}: {day: number; maxDays: number; paper?: string}) {
